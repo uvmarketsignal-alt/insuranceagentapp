@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -20,10 +22,11 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// Root endpoint just to show the server is running
-app.get('/', (req, res) => {
-  res.send('Insurance Agency API is running! Access endpoints at /api/...');
-});
+// Serve static React application files from the 'dist' directory
+app.use(express.static(path.join(process.cwd(), 'dist')));
+
+// We can remove the old manual root route but keeping a health indicator is fine
+// app.get('/', ...) is replaced by express.static() taking over the root route
 
 // Simple health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -57,6 +60,12 @@ app.post('/api/tenants', async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Catch-all route to serve the React app (Client-side routing fallback)
+// MUST BE AFTER ALL API ROUTES
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
 });
 
 app.get('/api/customers', async (req, res) => {

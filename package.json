@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "tsx watch server/index.ts"
+    "server": "tsx watch server/index.ts",
+    "start": "tsx server/index.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -24,7 +25,8 @@
     "react-webcam": "^7.2.0",
     "tailwind-merge": "^3.5.0",
     "xlsx": "^0.18.5",
-    "zustand": "^5.0.11"
+    "zustand": "^5.0.11",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.3.0",
@@ -37,7 +39,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
     "tailwindcss": "4.1.17",
-    "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vite-plugin-singlefile": "^2.3.0"

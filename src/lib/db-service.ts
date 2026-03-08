@@ -163,10 +163,19 @@ export class DatabaseService {
   }
 
   async getCustomers(tenantId: string): Promise<Customer[]> {
-    return prisma.customers.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Customer[]>;
+    try {
+      // Connect to the real backend Express API we just built!
+      const response = await fetch(`/api/customers?tenant_id=${tenantId}`);
+      if (!response.ok) throw new Error('Failed to fetch customers from API');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API fetch failed, falling back to mock DB:', error);
+      return prisma.customers.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'desc' }
+      }) as Promise<Customer[]>;
+    }
   }
 
   async getCustomerById(id: string): Promise<Customer | null> {
