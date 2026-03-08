@@ -1,103 +1,168 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { Pool } from 'pg';
 import path from 'path';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import crypto from 'crypto';
+import { JSONFilePreset } from 'lowdb/node';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DB_PATH = join(__dirname, 'db.json');
+
+const SALT = process.env.AUTH_SALT || 'UV_INS_2025_SECURE_SALT_FALLBACK';
+
+// Initialize dummy data if file doesn't exist
+const defaultData = {
+  tenants: [],
+  profiles: [],
+  customers: [],
+  policies: [],
+  documents: [],
+  audit_logs: [],
+  notifications: [],
+  claims: [],
+  commissions: [],
+  leads: [],
+  renewals: [],
+  premium_payments: [],
+  family_members: [],
+  endorsements: [],
+  message_templates: [],
+  compliance_reports: [],
+  knowledge_articles: [],
+  ai_insights: [],
+  security_events: [],
+  performance_metrics: []
+};
+
+const db = await JSONFilePreset(DB_PATH, defaultData);
+
 const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Neon prefers a direct connection or the pooled URL depending on the connection string
-// pg Pool will work with the standard Neon connection string given
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
 app.use(cors());
 app.use(express.json());
 
-// Serve static React application files from the 'dist' directory
-app.use(express.static(path.join(process.cwd(), 'dist')));
+const PORT = 3001;
 
-// We can remove the old manual root route but keeping a health indicator is fine
-// app.get('/', ...) is replaced by express.static() taking over the root route
+// Auth
+app.get('/api/tenants', (req, res) => {
+  const { email } = req.query;
+  const tenants = db.data.tenants.filter((t: any) => t.email === email);
+  res.json(tenants);
+});
 
-// Simple health check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT version();');
-    res.json({ status: 'ok', message: 'Successfully connected to Neon DB via Express Backend!', version: rows[0].version });
-  } catch (error: any) {
-    res.status(500).json({ status: 'error', message: error.message });
+app.get('/api/tenants/:id', (req, res) => {
+  const tenant = db.data.tenants.find((t: any) => t.id === req.params.id);
+  res.json(tenant || null);
+});
+
+app.get('/api/profiles/:tenantId', (req, res) => {
+  const profile = db.data.profiles.find((p: any) => p.tenant_id === req.params.tenantId);
+  res.json(profile || null);
+});
+
+app.patch('/api/profiles/:tenantId', async (req, res) => {
+  const index = db.data.profiles.findIndex((p: any) => p.tenant_id === req.params.tenantId);
+  if (index > -1) {
+    db.data.profiles[index] = { ...db.data.profiles[index], ...req.body, updated_at: new Date() };
+  } else {
+    db.data.profiles.push({ tenant_id: req.params.tenantId, ...req.body, created_at: new Date(), updated_at: new Date() });
   }
+  await db.write();
+  res.json(db.data.profiles.find((p: any) => p.tenant_id === req.params.tenantId));
 });
 
-// Example endpoint: Fetch all tenants
-app.get('/api/tenants', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM tenants;');
-    res.json(rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+// Generic CRUD Helper
+const handleRequest = (table: any) => {
+  app.get(`/api/${table}`, (req, res) => {
+    let data = db.data[table];
+    Object.keys(req.query).forEach(key => {
+      if (req.query[key]) {
+        data = data.filter((item: any) => String(item[key]) === String(req.query[key]));
+      }
+    });
+    res.json(data);
+  });
+
+  app.post(`/api/${table}`, async (req, res) => {
+    const newItem = { id: crypto.randomUUID(), created_at: new Date(), updated_at: new Date(), ...req.body };
+    db.data[table].push(newItem);
+    await db.write();
+    res.status(201).json(newItem);
+  });
+
+  app.patch(`/api/${table}/:id`, async (req, res) => {
+    const index = db.data[table].findIndex((item: any) => item.id === req.params.id);
+    if (index === -1) return res.status(404).send('Not found');
+    db.data[table][index] = { ...db.data[table][index], ...req.body, updated_at: new Date() };
+    await db.write();
+    res.json(db.data[table][index]);
+  });
+
+  app.delete(`/api/${table}/:id`, async (req, res) => {
+    db.data[table] = db.data[table].filter((item: any) => item.id !== req.params.id);
+    await db.write();
+    res.status(204).send();
+  });
+};
+
+const tables = [
+  'customers', 'policies', 'documents', 'audit_logs', 'notifications',
+  'claims', 'commissions', 'leads', 'renewals', 'premium_payments',
+  'family_members', 'endorsements', 'message_templates', 'compliance_reports',
+  'knowledge_articles', 'ai_insights', 'security_events', 'performance_metrics'
+];
+
+tables.forEach(handleRequest);
+
+// Specifics
+app.patch('/api/notifications/mark-read', async (req, res) => {
+  const { tenant_id, id } = req.body;
+  db.data.notifications.forEach((n: any) => {
+    if (id && n.id === id) n.is_read = true;
+    else if (!id && n.tenant_id === tenant_id) n.is_read = true;
+  });
+  await db.write();
+  res.json({ success: true });
 });
 
-// Example endpoint: Create a new tenant
-app.post('/api/tenants', async (req, res) => {
-  try {
-    const { name, email, password, role, is_active } = req.body;
-    const { rows } = await pool.query(
-      'INSERT INTO tenants (id, name, email, password, role, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *',
-      [crypto.randomUUID(), name, email, password, role, is_active]
-    );
-    res.status(201).json(rows[0]);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+app.get('/api/leads/export', (req, res) => {
+  const { tenant_id } = req.query;
+  const leads = db.data.leads.filter((l: any) => l.tenant_id === tenant_id);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=leads.csv');
+  let csv = 'Full Name,Email,Phone,Status,Source\n';
+  leads.forEach((l: any) => {
+    csv += `${l.full_name},${l.email || ''},${l.phone || ''},${l.status},${l.source || ''}\n`;
+  });
+  res.send(csv);
 });
 
-// Catch-all route to serve the React app (Client-side routing fallback)
-// MUST BE AFTER ALL API ROUTES
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+app.get('/api/customers/export', (req, res) => {
+  const { tenant_id } = req.query;
+  const customers = db.data.customers.filter((c: any) => c.tenant_id === tenant_id);
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=customers.csv');
+  let csv = 'Full Name,Email,Phone,Status\n';
+  customers.forEach((c: any) => {
+    csv += `${c.full_name},${c.email || ''},${c.phone || ''},${c.status}\n`;
+  });
+  res.send(csv);
 });
 
-app.get('/api/customers', async (req, res) => {
-  try {
-    const tenantId = req.query.tenant_id;
-    let query = 'SELECT * FROM customers';
-    let params: string[] = [];
-    
-    if (tenantId) {
-      query += ' WHERE tenant_id = $1';
-      params.push(tenantId as string);
-    }
-    
-    // Fetch customers
-    const { rows: customers } = await pool.query(query, params);
-    
-    // For each customer, fetch their policies
-    for (let customer of customers) {
-      const { rows: policies } = await pool.query(
-          'SELECT * FROM customer_policies WHERE customer_id = $1',
-          [customer.id]
-      );
-      customer.policies = policies;
-    }
-    
-    res.json(customers);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+app.get('/api/health', (req, res) => res.json({ status: 'ok', salt_configured: !!process.env.AUTH_SALT }));
 
-// Start the Express server
+// Serve frontend in production
+if (fs.existsSync(join(process.cwd(), 'dist'))) {
+  app.use(express.static(join(process.cwd(), 'dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(join(process.cwd(), 'dist', 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

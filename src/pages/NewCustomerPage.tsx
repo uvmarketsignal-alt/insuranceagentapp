@@ -1,10 +1,11 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
 import {
   ArrowLeft, ArrowRight, Check, Camera, Upload, FileText, User, Car,
   Heart, Home, Plane, Shield, Clock, AlertCircle, CheckCircle2, X,
   Activity, Droplet, Ruler, Weight, Phone, Mail, MapPin, Briefcase,
-  CreditCard, Hash, Building, DollarSign, Calendar, Star
+  CreditCard, Hash, Building, DollarSign, Calendar, Star, FileSpreadsheet, Trash2
 } from 'lucide-react';
 import { useStore } from '../store';
 import { LiveCamera } from '../components/LiveCamera';
@@ -115,8 +116,153 @@ function Field({ label, icon: Icon, required, children }: { label: string; icon?
 const inputCls = "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all text-sm";
 const selectCls = inputCls;
 
+// ─── BULK IMPORT STEP ────────────────────────────────────────────────────────
+function BulkImportStep({ onImport, onCancel }: { onImport: (data: any[]) => void; onCancel: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      setFile(f);
+      parseFile(f);
+    }
+  };
+
+  const parseFile = (f: File) => {
+    setIsParsing(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const bstr = e.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        setPreviewData(data);
+      } catch (err) {
+        console.error('File parsing error:', err);
+        alert('Failed to parse file. Please use a valid Excel or CSV.');
+      } finally {
+        setIsParsing(false);
+      }
+    };
+    reader.readAsBinaryString(f);
+  };
+
+  const processImport = () => {
+    if (previewData.length === 0) return;
+
+    // Map the imported columns to our store schema
+    const mapped = previewData.map(row => ({
+      customer: {
+        full_name: row['Full Name'] || row['Name'] || '',
+        phone: String(row['Phone'] || row['Mobile'] || ''),
+        email: row['Email'] || '',
+        occupation: row['Occupation'] || '',
+        annual_income: String(row['Income'] || row['Annual Income'] || ''),
+        address: row['Address'] || '',
+        status: 'pending' as const,
+      },
+      policy: {
+        policy_type: String(row['Policy Type'] || row['Type'] || 'others').toLowerCase(),
+        policy_number: String(row['Policy Number'] || row['Number'] || `POL-${Date.now()}`),
+        insurer: row['Insurer'] || row['Company'] || '',
+        sum_assured: Number(row['Sum Assured'] || row['IDV'] || 0),
+        premium_amount: Number(row['Premium'] || 0),
+        status: 'active' as const,
+      }
+    }));
+
+    onImport(mapped);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+          <FileSpreadsheet className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Bulk Import Customers</h2>
+          <p className="text-sm text-slate-500">Upload Excel (.xlsx) or CSV file</p>
+        </div>
+      </div>
+
+      {!file ? (
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer group"
+        >
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls, .csv" className="hidden" />
+          <Upload className="w-12 h-12 text-slate-300 mx-auto mb-4 group-hover:text-blue-500 transition-colors" />
+          <p className="text-slate-600 font-medium">Click to upload or drag and drop</p>
+          <p className="text-slate-400 text-sm mt-1">Excel or CSV files (Up to 10MB)</p>
+          
+          <div className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full ring-1 ring-blue-100">
+            <CheckCircle2 className="w-3 h-3" /> Required: Full Name, Phone, Policy Type
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-500" />
+              <span className="text-sm font-semibold text-slate-700">{file.name}</span>
+              <span className="text-xs text-slate-400">({previewData.length} rows found)</span>
+            </div>
+            <button onClick={() => { setFile(null); setPreviewData([]); }} className="p-1.5 hover:bg-red-50 text-red-400 rounded-lg transition-colors">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="max-h-60 overflow-y-auto overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                <tr>
+                  {previewData[0] && Object.keys(previewData[0]).map(h => (
+                    <th key={h} className="px-4 py-2 font-medium">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {previewData.slice(0, 5).map((row, i) => (
+                  <tr key={i}>
+                    {Object.values(row).map((v: any, j) => (
+                      <td key={j} className="px-4 py-2 text-slate-600 truncate max-w-[150px]">{String(v)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {previewData.length > 5 && (
+              <div className="p-2 text-center text-[10px] text-slate-400 border-t border-slate-100">
+                Showing first 5 of {previewData.length} records
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between pt-2">
+        <button onClick={onCancel} className="px-6 py-2.5 text-slate-600 font-semibold rounded-xl hover:bg-slate-100 transition-all">
+          Cancel
+        </button>
+        <button 
+          onClick={processImport}
+          disabled={!file || previewData.length === 0 || isParsing}
+          className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-2 disabled:opacity-40"
+        >
+          {isParsing ? 'Parsing...' : 'Import All Records'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── STEP 0: BASIC INFO ──────────────────────────────────────────────────────
-function Step0Form({ data, onSubmit }: { data: any; onSubmit: (d: any) => void }) {
+function Step0Form({ data, onSubmit, onBulkClick }: { data: any; onSubmit: (d: any) => void; onBulkClick: () => void }) {
   const [form, setForm] = useState({
     full_name: data?.full_name || '',
     phone: data?.phone || '',
@@ -150,14 +296,24 @@ function Step0Form({ data, onSubmit }: { data: any; onSubmit: (d: any) => void }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-          <User className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+            <User className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Basic Information</h2>
+            <p className="text-sm text-slate-500">Customer personal details (NO Aadhaar/PAN here)</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Basic Information</h2>
-          <p className="text-sm text-slate-500">Customer personal details (NO Aadhaar/PAN here)</p>
-        </div>
+        
+        <button 
+          onClick={onBulkClick}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-colors border border-blue-100"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Bulk Import
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1079,13 +1235,14 @@ function Step5Review({ data, documents, onSubmit, submissionError, isSubmitting 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function NewCustomerPage({ onComplete }: NewCustomerPageProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraDocType, setCameraDocType] = useState('');
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [submissionError, setSubmissionError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { newCustomerData, setNewCustomerStep, clearNewCustomerData, addCustomer, addPolicy, addDocument, tenant } = useStore();
+  const { newCustomerData, setNewCustomerStep, clearNewCustomerData, addCustomer, addPolicy, bulkAddCustomersAndPolicies, tenant } = useStore();
 
   const steps = [
     { title: 'Basic Info',       icon: User,         desc: 'Personal details' },
@@ -1174,24 +1331,29 @@ export default function NewCustomerPage({ onComplete }: NewCustomerPageProps) {
       } as any);
 
       // Upload documents
+      const uploadFile = useStore.getState().uploadFile;
+
       for (const doc of mergedDocuments) {
         if (!doc.file) continue;
-        // Create a persistent object URL for the file
-        const fileUrl = doc.captured
-          ? doc.file as unknown as string  // camera blob URL already set
-          : URL.createObjectURL(doc.file);
+        
+        try {
+          const uploadedFile = await uploadFile(doc.file as File);
 
-        await addDocument({
-          customer_id: customer.id,
-          tenant_id: tenant.id,
-          document_type: doc.type,
-          file_name: doc.file instanceof File ? doc.file.name : doc.type,
-          file_url: typeof fileUrl === 'string' ? fileUrl : '',
-          file_type: doc.file instanceof File ? doc.file.type : 'image/jpeg',
-          file_size: doc.file instanceof File ? doc.file.size : 0,
-          uploaded_by: tenant.id,
-          is_camera_capture: doc.captured,
-        });
+          await useStore.getState().addDocument({
+            customer_id: customer.id,
+            tenant_id: tenant.id,
+            document_type: doc.type,
+            file_name: uploadedFile.filename,
+            file_url: uploadedFile.url,
+            file_type: doc.file?.type || 'application/octet-stream',
+            file_size: uploadedFile.size,
+            uploaded_by: tenant.id,
+            is_camera_capture: doc.captured,
+          });
+        } catch (uploadErr) {
+          console.error(`Failed to upload ${doc.type}:`, uploadErr);
+          // Continue with other files even if one fails, or handle as needed
+        }
       }
 
       // Notification
@@ -1217,8 +1379,28 @@ export default function NewCustomerPage({ onComplete }: NewCustomerPageProps) {
   };
 
   const renderStep = () => {
+    if (isBulkImporting) {
+      return (
+        <BulkImportStep 
+          onImport={async (items) => {
+            try {
+              setIsSubmitting(true);
+              await bulkAddCustomersAndPolicies(items);
+              setIsBulkImporting(false);
+              onComplete();
+            } catch (err) {
+              setSubmissionError('Bulk import failed.');
+            } finally {
+              setIsSubmitting(false);
+            }
+          }} 
+          onCancel={() => setIsBulkImporting(false)} 
+        />
+      );
+    }
+
     switch (currentStep) {
-      case 0: return <Step0Form data={newCustomerData.step0} onSubmit={d => { setNewCustomerStep(0, d); setCurrentStep(1); }} />;
+      case 0: return <Step0Form data={newCustomerData.step0} onBulkClick={() => setIsBulkImporting(true)} onSubmit={d => { setNewCustomerStep(0, d); setCurrentStep(1); }} />;
       case 1: return <Step1Form onSubmit={p => { setNewCustomerStep(1, { policy_type: p }); setDocuments([]); setCurrentStep(2); }} />;
       case 2: return <Step2Form data={newCustomerData.step2} policyType={selectedPolicyType} onSubmit={d => { setNewCustomerStep(2, d); setCurrentStep(3); }} />;
       case 3: return <Step3Form data={newCustomerData.step3} onSubmit={d => { setNewCustomerStep(3, d); setCurrentStep(4); }} />;
@@ -1322,18 +1504,7 @@ export default function NewCustomerPage({ onComplete }: NewCustomerPageProps) {
           ))}
         </div>
 
-        {currentStep < steps.length - 1 ? (
-          <button onClick={() => setCurrentStep(s => Math.min(steps.length - 1, s + 1))}
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 text-sm font-semibold shadow-lg shadow-blue-500/20">
-            Next <ArrowRight className="w-4 h-4" />
-          </button>
-        ) : (
-          <button onClick={handleSubmit} disabled={isSubmitting}
-            className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm font-semibold shadow-lg shadow-green-500/20 disabled:opacity-50">
-            <Check className="w-4 h-4" />
-            {isSubmitting ? 'Submitting...' : 'Submit'}
-          </button>
-        )}
+        <div className="w-[100px]" /> {/* Spacer to balance the layout */}
       </div>
 
       {/* Camera Modal */}

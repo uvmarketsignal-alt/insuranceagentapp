@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Plus, Phone, Mail, ChevronRight } from 'lucide-react';
+import { Users, Plus, Phone, Mail, ChevronRight, Download } from 'lucide-react';
 import { useStore } from '../store';
 import { format } from 'date-fns';
 
@@ -10,7 +10,7 @@ const STAGE_COLORS: Record<string, string> = {
 };
 
 export default function LeadsPage() {
-  const { leads, addLead, updateLeadStage, deleteLead, tenant } = useStore();
+  const { leads, addLead, updateLeadStage, deleteLead, tenant, addAuditLog } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ full_name: '', phone: '', email: '', source: '', notes: '' });
 
@@ -24,6 +24,40 @@ export default function LeadsPage() {
 
   const activeLeads = leads.filter(l => l.status !== 'deleted');
 
+  const handleExport = async () => {
+    if (!tenant) return;
+    
+    const params = new URLSearchParams({
+      tenant_id: tenant.id,
+      role: tenant.role,
+      assigned_to: tenant.id
+    });
+
+    try {
+      const response = await fetch(`/api/leads/export?${params.toString()}`);
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `leads_export_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await addAuditLog({ 
+        tenant_id: tenant.id, 
+        action: 'export_leads', 
+        entity_type: 'bulk_export',
+        new_values: `Exported leads from backend` 
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -33,9 +67,16 @@ export default function LeadsPage() {
           </h1>
           <p className="text-slate-500 mt-1">Manage your sales pipeline and convert leads</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90">
-          <Plus className="w-4 h-4" /> Add Lead
-        </button>
+        <div className="flex gap-2">
+          {tenant?.role === 'owner' && (
+            <button onClick={handleExport} className="flex items-center gap-2 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-xl font-medium hover:bg-slate-50 transition-all shadow-sm">
+              <Download className="w-4 h-4 text-purple-600" /> Export CSV
+            </button>
+          )}
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90">
+            <Plus className="w-4 h-4" /> Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board */}

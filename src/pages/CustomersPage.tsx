@@ -72,6 +72,40 @@ export default function CustomersPage({ onNavigate }: Props) {
     }
   };
 
+  const handleBulkExport = async () => {
+    if (!tenant) return;
+    
+    const params = new URLSearchParams({
+      tenant_id: tenant.id,
+      role: tenant.role,
+      assigned_to: tenant.id
+    });
+
+    try {
+      const response = await fetch(`/api/customers/export?${params.toString()}`);
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers_export_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await addAuditLog({ 
+        tenant_id: tenant.id, 
+        action: 'export_all_customers', 
+        entity_type: 'bulk_export',
+        new_values: `Bulk exported customers from backend` 
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   const exportCustomer = async (customer: Customer) => {
     if (!tenant) return;
     const csv = [
@@ -110,11 +144,20 @@ export default function CustomersPage({ onNavigate }: Props) {
           <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
           <p className="text-slate-500 mt-1">Manage all customer records and policies</p>
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-          onClick={() => onNavigate('new-customer')}
-          className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 text-sm">
-          <Plus className="w-4 h-4" /> Add Customer
-        </motion.button>
+        <div className="flex gap-2">
+          {tenant?.role === 'owner' && (
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              onClick={handleBulkExport}
+              className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl font-semibold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 text-sm">
+              <Download className="w-4 h-4 text-blue-600" /> Export CSV
+            </motion.button>
+          )}
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            onClick={() => onNavigate('new-customer')}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 text-sm">
+            <Plus className="w-4 h-4" /> Add Customer
+          </motion.button>
+        </div>
       </div>
 
       {/* Status filter pills */}
@@ -210,10 +253,12 @@ export default function CustomersPage({ onNavigate }: Props) {
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => exportCustomer(customer)}
-                        className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Export">
-                        <Download className="w-4 h-4" />
-                      </button>
+                      {tenant?.role === 'owner' && (
+                        <button onClick={() => exportCustomer(customer)}
+                          className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Export">
+                          <Download className="w-4 h-4" />
+                        </button>
+                      )}
                       {tenant?.role === 'owner' && (
                         <button onClick={() => setDeleteConfirmId(customer.id)}
                           className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
@@ -284,28 +329,41 @@ export default function CustomersPage({ onNavigate }: Props) {
                           </div>
                         ) : (
                           /* VIEW DETAILS */
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {[
-                              { label: 'Full Name',       value: customer.full_name,     icon: User        },
-                              { label: 'Phone',           value: customer.phone,          icon: Phone       },
-                              { label: 'Email',           value: customer.email || '—',   icon: Mail        },
-                              { label: 'Gender',          value: customer.gender || '—',  icon: User        },
-                              { label: 'Occupation',      value: customer.occupation || '—', icon: Briefcase },
-                              { label: 'Annual Income',   value: customer.annual_income ? `₹${Number(customer.annual_income).toLocaleString()}` : '—', icon: DollarSign },
-                              { label: 'Address',         value: customer.address || '—', icon: MapPin      },
-                              { label: 'Date of Birth',   value: customer.date_of_birth ? format(new Date(customer.date_of_birth), 'dd MMM yyyy') : '—', icon: Calendar },
-                              { label: 'Risk Score',      value: customer.risk_score ? `${customer.risk_score}/100` : '—', icon: AlertCircle },
-                            ].map(({ label, value, icon: Icon }) => (
-                              <div key={label} className="flex items-start gap-2">
-                                <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <Icon className="w-3.5 h-3.5 text-slate-500" />
-                                </div>
-                                <div>
-                                  <p className="text-xs text-slate-500">{label}</p>
-                                  <p className="text-sm font-medium text-slate-900 mt-0.5">{value}</p>
-                                </div>
+                          <div className="space-y-6">
+                            {customer.status === 'changes_requested' && (
+                              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2 mb-2">
+                                  <AlertCircle className="w-4 h-4" />
+                                  Feedback from Owner
+                                </h4>
+                                <p className="text-sm text-blue-800 italic">
+                                  "{customer.request_changes_notes || 'Please review your application and update the necessary details.'}"
+                                </p>
                               </div>
-                            ))}
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                              {[
+                                { label: 'Full Name',       value: customer.full_name,     icon: User        },
+                                { label: 'Phone',           value: customer.phone,          icon: Phone       },
+                                { label: 'Email',           value: customer.email || '—',   icon: Mail        },
+                                { label: 'Gender',          value: customer.gender || '—',  icon: User        },
+                                { label: 'Occupation',      value: customer.occupation || '—', icon: Briefcase },
+                                { label: 'Annual Income',   value: customer.annual_income ? `₹${Number(customer.annual_income).toLocaleString()}` : '—', icon: DollarSign },
+                                { label: 'Address',         value: customer.address || '—', icon: MapPin      },
+                                { label: 'Date of Birth',   value: customer.date_of_birth ? format(new Date(customer.date_of_birth), 'dd MMM yyyy') : '—', icon: Calendar },
+                                { label: 'Risk Score',      value: customer.risk_score ? `${customer.risk_score}/100` : '—', icon: AlertCircle },
+                              ].map(({ label, value, icon: Icon }) => (
+                                <div key={label} className="flex items-start gap-2">
+                                  <div className="w-7 h-7 bg-white rounded-lg border border-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                                    <Icon className="w-3.5 h-3.5 text-slate-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</p>
+                                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{value}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>

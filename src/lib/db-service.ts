@@ -1,4 +1,3 @@
-import { PrismaClient } from './prisma-mock';
 import type {
   Tenant,
   Profile,
@@ -13,751 +12,522 @@ import type {
   Renewal,
   PremiumPayment,
   FamilyMember,
-  Endorsement,
-  MessageTemplate,
   ComplianceReport,
-  KnowledgeArticle
+  KnowledgeArticle,
+  SecurityEvent,
+  PerformanceMetric,
+  AiInsight
 } from '../types';
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
-
 export class DatabaseService {
-  private demoTenants: Tenant[] = [
-    {
-      id: 'tenant_001',
-      name: 'UV',
-      email: 'uv@uvinsurance.in',
-      password: 'UV@Owner2025',
-      role: 'owner',
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    },
-    {
-      id: 'tenant_002',
-      name: 'Raghul',
-      email: 'raghul@uvinsurance.in',
-      password: 'Raghul@Emp2025',
-      role: 'employee',
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    },
-    {
-      id: 'tenant_003',
-      name: 'Vasu',
-      email: 'vasu@uvinsurance.in',
-      password: 'Vasu@Emp2025',
-      role: 'employee',
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    }
-  ];
 
-  private demoProfiles: Profile[] = [
-    {
-      id: 'profile_001',
-      tenant_id: 'tenant_001',
-      full_name: 'UV',
-      phone: '+919876543210',
-      avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=UV',
-      employee_code: 'OWN-001',
-      department: 'Management',
-      join_date: new Date('2024-01-01'),
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    },
-    {
-      id: 'profile_002',
-      tenant_id: 'tenant_002',
-      full_name: 'Raghul',
-      phone: '+919876543211',
-      avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Raghul',
-      employee_code: 'EMP-001',
-      department: 'Sales',
-      join_date: new Date('2024-01-01'),
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    },
-    {
-      id: 'profile_003',
-      tenant_id: 'tenant_003',
-      full_name: 'Vasu',
-      phone: '+919876543212',
-      avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vasu',
-      employee_code: 'EMP-002',
-      department: 'Operations',
-      join_date: new Date('2024-01-01'),
-      is_active: true,
-      created_at: new Date('2024-01-01'),
-      updated_at: new Date('2024-01-01')
-    }
-  ];
 
   // Auth operations
   async getTenantByEmail(email: string): Promise<Tenant | null> {
-    const normalizedEmail = email.trim().toLowerCase();
-    const tenant = await prisma.tenants.findFirst({
-      where: { email: normalizedEmail, is_active: true }
-    }) as Promise<Tenant | null>;
-
-    if (tenant) {
-      return tenant;
-    }
-
-    return this.demoTenants.find(t => t.email.toLowerCase() === normalizedEmail) ?? null;
+    const response = await fetch(`/api/tenants?email=${email.trim().toLowerCase()}`);
+    if (!response.ok) return null;
+    const tenants = await response.json();
+    return tenants[0] || null;
   }
 
   async getTenantById(id: string): Promise<Tenant | null> {
-    const tenant = await prisma.tenants.findFirst({
-      where: { id, is_active: true }
-    }) as Promise<Tenant | null>;
-
-    if (tenant) {
-      return tenant;
-    }
-
-    return this.demoTenants.find(t => t.id === id) ?? null;
+    const response = await fetch(`/api/tenants/${id}`);
+    if (!response.ok) return null;
+    return response.json();
   }
 
   async getProfileByTenantId(tenantId: string): Promise<Profile | null> {
-    const profile = await prisma.profiles.findFirst({
-      where: { tenant_id: tenantId, is_active: true }
-    }) as Promise<Profile | null>;
-
-    if (profile) {
-      return profile;
-    }
-
-    return this.demoProfiles.find(p => p.tenant_id === tenantId) ?? null;
+    const response = await fetch(`/api/profiles/${tenantId}`);
+    if (!response.ok) return null;
+    return response.json();
   }
 
   async updateTenantPassword(tenantId: string, password: string): Promise<void> {
-    await prisma.tenants.update({
-      where: { id: tenantId },
-      data: { password }
+    const response = await fetch(`/api/tenants/${tenantId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
     });
+    if (!response.ok) throw new Error('Failed to update password');
   }
 
   // Customer operations
   async createCustomer(data: Omit<Customer, 'id' | 'created_at' | 'updated_at'>): Promise<Customer> {
-    return prisma.customers.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<Customer>;
+    const response = await fetch('/api/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create customer');
+    return response.json();
   }
 
-  async getCustomers(tenantId: string): Promise<Customer[]> {
-    try {
-      // Connect to the real backend Express API we just built!
-      const response = await fetch(`/api/customers?tenant_id=${tenantId}`);
-      if (!response.ok) throw new Error('Failed to fetch customers from API');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('API fetch failed, falling back to mock DB:', error);
-      return prisma.customers.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: { created_at: 'desc' }
-      }) as Promise<Customer[]>;
-    }
+  async getCustomers(tenantId: string, role?: string, assignedTo?: string): Promise<Customer[]> {
+    const response = await fetch(`/api/customers?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch customers');
+    return response.json();
+  }
+
+  async exportCustomers(tenantId: string): Promise<void> {
+    window.location.href = `/api/customers/export?tenant_id=${tenantId}`;
   }
 
   async getCustomerById(id: string): Promise<Customer | null> {
-    return prisma.customers.findFirst({
-      where: { id }
-    }) as Promise<Customer | null>;
+    const response = await fetch(`/api/customers/${id}`);
+    if (!response.ok) return null;
+    return response.json();
   }
 
-  async updateCustomerStatus(id: string, status: string, assignedTo?: string): Promise<Customer> {
-    return prisma.customers.update({
-      where: { id },
-      data: {
-        status,
-        assigned_to: assignedTo,
-        updated_at: new Date()
-      }
-    }) as Promise<Customer>;
+  async updateCustomerStatus(id: string, status: string, assignedTo?: string, requestChangesNotes?: string): Promise<Customer> {
+    const response = await fetch(`/api/customers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, assigned_to: assignedTo, request_changes_notes: requestChangesNotes })
+    });
+    if (!response.ok) throw new Error('Failed to update customer status');
+    return response.json();
   }
 
   // Policy operations
   async createPolicy(data: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at'>): Promise<CustomerPolicy> {
-    return prisma.customer_policies.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<CustomerPolicy>;
+    const response = await fetch('/api/policies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create policy');
+    return response.json();
   }
 
-  async getPolicies(tenantId: string): Promise<CustomerPolicy[]> {
-    return prisma.customer_policies.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<CustomerPolicy[]>;
+  async getPolicies(tenantId: string, role?: string, assignedTo?: string, customerId?: string): Promise<CustomerPolicy[]> {
+    const response = await fetch(`/api/policies?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}&customer_id=${customerId || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch policies');
+    return response.json();
   }
 
   // Document operations
   async createDocument(data: Omit<Document, 'id' | 'created_at'>): Promise<Document> {
-    return prisma.documents.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    }) as Promise<Document>;
+    const response = await fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create document');
+    return response.json();
   }
 
-  async getDocuments(tenantId: string): Promise<Document[]> {
-    return prisma.documents.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Document[]>;
+  async uploadFile(file: File): Promise<{ url: string; filename: string; size: number; type: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Failed to upload file');
+    return response.json();
   }
 
-  async getCustomerDocuments(customerId: string): Promise<Document[]> {
-    return prisma.documents.findMany({
-      where: { customer_id: customerId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Document[]>;
+  async getDocuments(tenantId: string, role?: string, assignedTo?: string, customerId?: string): Promise<Document[]> {
+    const response = await fetch(`/api/documents?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}&customer_id=${customerId || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch documents');
+    return response.json();
+  }
+
+  async getCustomerDocuments(tenantId: string, role: string, assignedTo: string, customerId: string): Promise<Document[]> {
+    return this.getDocuments(tenantId, role, assignedTo, customerId);
   }
 
   // Audit log operations
   async createAuditLog(data: Omit<AuditLog, 'id' | 'created_at'>): Promise<AuditLog> {
-    return prisma.audit_logs.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    }) as Promise<AuditLog>;
+    const response = await fetch('/api/audit-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create audit log');
+    return response.json();
   }
 
   async getAuditLogs(tenantId: string): Promise<AuditLog[]> {
-    return prisma.audit_logs.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' },
-      take: 100
-    }) as Promise<AuditLog[]>;
+    const response = await fetch(`/api/audit-logs?tenant_id=${tenantId}`);
+    if (!response.ok) throw new Error('Failed to fetch audit logs');
+    return response.json();
   }
 
   // Notification operations
   async createNotification(data: Omit<Notification, 'id' | 'created_at' | 'is_read'>): Promise<Notification> {
-    return prisma.notifications.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        is_read: false,
-        created_at: new Date()
-      }
-    }) as Promise<Notification>;
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
   async getNotifications(tenantId: string): Promise<Notification[]> {
-    return prisma.notifications.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' },
-      take: 50
-    }) as Promise<Notification[]>;
+    const response = await fetch(`/api/notifications?tenant_id=${tenantId}`);
+    return response.json();
   }
 
   async markNotificationAsRead(id: string): Promise<Notification> {
-    return prisma.notifications.update({
-      where: { id },
-      data: { is_read: true }
-    }) as Promise<Notification>;
+    const response = await fetch(`/api/notifications/mark-read`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    return response.json();
   }
 
   async markAllNotificationsAsRead(tenantId: string): Promise<void> {
-    await prisma.notifications.updateMany({
-      where: { tenant_id: tenantId, is_read: false },
-      data: { is_read: true }
+    await fetch(`/api/notifications/mark-read`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenant_id: tenantId })
     });
   }
 
   // Claim operations
-  async createClaim(data: Omit<Claim, 'id' | 'created_at' | 'updated_at'>): Promise<Claim> {
-    return prisma.claims.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<Claim>;
-  }
-
-  async getClaims(tenantId: string): Promise<Claim[]> {
-    return prisma.claims.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Claim[]>;
+  async createClaim(data: any): Promise<any> {
+    const response = await fetch('/api/claims', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
   async updateClaimStatus(id: string, status: string): Promise<Claim> {
-    return prisma.claims.update({
-      where: { id },
-      data: {
-        status,
-        updated_at: new Date()
-      }
-    }) as Promise<Claim>;
+    const response = await fetch(`/api/claims/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    return response.json();
   }
 
   // Commission operations
   async createCommission(data: Omit<Commission, 'id' | 'created_at'>): Promise<Commission> {
-    return prisma.commissions.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    }) as Promise<Commission>;
+    const response = await fetch('/api/commissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create commission');
+    return response.json();
   }
 
-  async getCommissions(tenantId: string): Promise<Commission[]> {
-    return prisma.commissions.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Commission[]>;
+  async getCommissions(tenantId: string, role?: string, assignedTo?: string): Promise<Commission[]> {
+    const response = await fetch(`/api/commissions?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch commissions');
+    return response.json();
   }
 
   async payCommission(id: string): Promise<Commission> {
-    return prisma.commissions.update({
-      where: { id },
-      data: {
-        is_paid: true,
-        paid_date: new Date()
-      }
-    }) as Promise<Commission>;
+    const response = await fetch(`/api/commissions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_paid: true, paid_date: new Date() })
+    });
+    return response.json();
   }
 
   // Lead operations
   async createLead(data: Omit<Lead, 'id' | 'created_at' | 'updated_at'>): Promise<Lead> {
-    return prisma.leads.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<Lead>;
+    const response = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create lead');
+    return response.json();
   }
 
-  async getLeads(tenantId: string): Promise<Lead[]> {
-    return prisma.leads.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Lead[]>;
+  async getLeads(tenantId: string, role?: string, assignedTo?: string): Promise<Lead[]> {
+    const response = await fetch(`/api/leads?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch leads');
+    return response.json();
+  }
+
+  async exportLeads(tenantId: string): Promise<void> {
+    window.location.href = `/api/leads/export?tenant_id=${tenantId}`;
   }
 
   async updateLeadStage(id: string, status: string): Promise<Lead> {
-    return prisma.leads.update({
-      where: { id },
-      data: {
-        status,
-        updated_at: new Date()
-      }
-    }) as Promise<Lead>;
+    const response = await fetch(`/api/leads/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    return response.json();
   }
 
   // Renewal operations
   async createRenewal(data: Omit<Renewal, 'id' | 'created_at' | 'notified' | 'processed'>): Promise<Renewal> {
-    return prisma.renewals.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        notified: false,
-        processed: false,
-        created_at: new Date()
-      }
-    }) as Promise<Renewal>;
+    const response = await fetch('/api/renewals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
-  async getRenewals(tenantId: string): Promise<Renewal[]> {
-    return prisma.renewals.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { renewal_date: 'asc' }
-    }) as Promise<Renewal[]>;
+  async getRenewals(tenantId: string, role?: string, assignedTo?: string): Promise<Renewal[]> {
+    const response = await fetch(`/api/renewals?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
+    if (!response.ok) throw new Error('Failed to fetch renewals');
+    return response.json();
   }
 
   async processRenewal(id: string): Promise<Renewal> {
-    return prisma.renewals.update({
-      where: { id },
-      data: {
-        processed: true,
-        processed_at: new Date()
-      }
-    }) as Promise<Renewal>;
+    const response = await fetch(`/api/renewals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ processed: true, processed_at: new Date() })
+    });
+    return response.json();
   }
 
   // Premium payment operations
   async createPremiumPayment(data: Omit<PremiumPayment, 'id' | 'created_at'>): Promise<PremiumPayment> {
-    return prisma.premium_payments.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    }) as Promise<PremiumPayment>;
+    const response = await fetch('/api/premium-payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
   async getPremiumPayments(tenantId: string): Promise<PremiumPayment[]> {
-    return prisma.premium_payments.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { payment_date: 'desc' }
-    }) as Promise<PremiumPayment[]>;
+    const response = await fetch(`/api/premium-payments?tenant_id=${tenantId}`);
+    return response.json();
   }
 
-  // Family member operations
   async createFamilyMember(data: Omit<FamilyMember, 'id' | 'created_at'>): Promise<FamilyMember> {
-    return prisma.family_members.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    }) as Promise<FamilyMember>;
+    const response = await fetch('/api/family-members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
   async getFamilyMembers(customerId: string): Promise<FamilyMember[]> {
-    return prisma.family_members.findMany({
-      where: { customer_id: customerId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<FamilyMember[]>;
+    const response = await fetch(`/api/family-members?customer_id=${customerId}`);
+    return response.json();
   }
 
   // Endorsement operations
-  async createEndorsement(data: Omit<Endorsement, 'id' | 'created_at' | 'status'>): Promise<Endorsement> {
-    return prisma.endorsements.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        status: 'pending',
-        created_at: new Date()
-      }
-    }) as Promise<Endorsement>;
+  async createEndorsement(data: any): Promise<any> {
+    const response = await fetch('/api/endorsements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
-  async getEndorsements(tenantId: string): Promise<Endorsement[]> {
-    return prisma.endorsements.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<Endorsement[]>;
+  async getEndorsements(tenantId: string): Promise<any[]> {
+    const response = await fetch(`/api/endorsements?tenant_id=${tenantId}`);
+    return response.json();
   }
 
-  async approveEndorsement(id: string, approvedBy: string): Promise<Endorsement> {
-    return prisma.endorsements.update({
-      where: { id },
-      data: {
-        status: 'approved',
-        approved_by: approvedBy,
-        approved_at: new Date()
-      }
-    }) as Promise<Endorsement>;
+  async approveEndorsement(id: string, approvedBy: string): Promise<any> {
+    const response = await fetch(`/api/endorsements/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved', approved_by: approvedBy, approved_at: new Date() })
+    });
+    return response.json();
   }
 
-  // Message template operations
-  async createMessageTemplate(data: Omit<MessageTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<MessageTemplate> {
-    return prisma.message_templates.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<MessageTemplate>;
+  async createMessageTemplate(data: any): Promise<any> {
+    const response = await fetch('/api/message-templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
-  async getMessageTemplates(tenantId: string): Promise<MessageTemplate[]> {
-    return prisma.message_templates.findMany({
-      where: { tenant_id: tenantId, is_active: true },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<MessageTemplate[]>;
+  async getMessageTemplates(tenantId: string): Promise<any[]> {
+    const response = await fetch(`/api/message-templates?tenant_id=${tenantId}`);
+    return response.json();
   }
 
-  // Compliance report operations
-  async createComplianceReport(data: Omit<ComplianceReport, 'id' | 'created_at' | 'status'>): Promise<ComplianceReport> {
-    return prisma.compliance_reports.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        status: 'draft',
-        created_at: new Date()
-      }
-    }) as Promise<ComplianceReport>;
+  async createComplianceReport(data: any): Promise<any> {
+    const response = await fetch('/api/compliance-reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
   async getComplianceReports(tenantId: string): Promise<ComplianceReport[]> {
-    return prisma.compliance_reports.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<ComplianceReport[]>;
+    const response = await fetch(`/api/compliance-reports?tenant_id=${tenantId}`);
+    return response.json();
   }
 
-  // Knowledge article operations
-  async createKnowledgeArticle(data: Omit<KnowledgeArticle, 'id' | 'created_at' | 'updated_at' | 'view_count'>): Promise<KnowledgeArticle> {
-    return prisma.knowledge_articles.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        view_count: 0,
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    }) as Promise<KnowledgeArticle>;
+  async createKnowledgeArticle(data: any): Promise<any> {
+    const response = await fetch('/api/knowledge-articles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
   }
 
-  async getKnowledgeArticles(tenantId: string): Promise<KnowledgeArticle[]> {
-    return prisma.knowledge_articles.findMany({
-      where: { tenant_id: tenantId, is_published: true },
-      orderBy: { created_at: 'desc' }
-    }) as Promise<KnowledgeArticle[]>;
+  async getKnowledgeArticles(_tenantId: string): Promise<any[]> {
+    const response = await fetch(`/api/knowledge-articles`);
+    return response.json();
   }
 
   // Employee operations
-  async createEmployee(data: Omit<Tenant, 'id' | 'created_at' | 'updated_at'> & { profile: Omit<Profile, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> }): Promise<Tenant> {
-    const tenant = await prisma.tenants.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        role: 'employee',
-        created_at: new Date(),
-        updated_at: new Date()
-      }
+  async createEmployee(data: any): Promise<any> {
+    const response = await fetch('/api/tenants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, role: 'employee' })
     });
-
-    await prisma.profiles.create({
-      data: {
-        ...data.profile,
-        id: crypto.randomUUID(),
-        tenant_id: tenant.id,
-        created_at: new Date(),
-        updated_at: new Date()
-      }
-    });
-
-    return tenant as Tenant;
+    return response.json();
   }
 
-  async getEmployees(tenantId: string): Promise<Array<Tenant & { profile: Profile }>> {
-    console.log('Loading employees for tenant:', tenantId);
-    const tenants = await prisma.tenants.findMany({
-      where: { role: 'employee' },
-      orderBy: { created_at: 'desc' }
+  async getEmployees(_tenantId: string): Promise<any[]> {
+    const response = await fetch(`/api/tenants?role=employee&include_profile=true`);
+    return response.json();
+  }
+
+  async toggleEmployeeStatus(tenantId: string, isActive: boolean): Promise<any> {
+    const response = await fetch(`/api/tenants/${tenantId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: isActive })
     });
-
-    const result = [];
-    for (const tenant of tenants) {
-      const profile = await prisma.profiles.findFirst({
-        where: { tenant_id: tenant.id }
-      });
-      if (profile) {
-        result.push({ ...tenant, profile });
-      }
-    }
-
-    return result as Array<Tenant & { profile: Profile }>;
+    return response.json();
   }
 
-  async toggleEmployeeStatus(tenantId: string, isActive: boolean): Promise<Tenant> {
-    return prisma.tenants.update({
-      where: { id: tenantId },
-      data: {
-        is_active: isActive,
-        updated_at: new Date()
-      }
-    }) as Promise<Tenant>;
-  }
-
-  // Database health check
   async healthCheck(): Promise<boolean> {
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      return true;
-    } catch (error) {
-      console.error('Database health check failed:', error);
-      return false;
-    }
+      const response = await fetch('/api/health');
+      return response.ok;
+    } catch { return false; }
   }
 
   // Premium Feature Methods
-  async updateCustomerField(customerId: string, field: string, value: any): Promise<Customer> {
-    return prisma.customers.update({
-      where: { id: customerId },
-      data: { [field]: value, updated_at: new Date() }
-    }) as Promise<Customer>;
-  }
-
-  async updateCustomerRiskScore(customerId: string, riskScore: number, flags: string[]): Promise<Customer> {
-    return prisma.customers.update({
-      where: { id: customerId },
-      data: { 
-        risk_score: riskScore, 
-        ai_underwriting_flags: flags,
-        updated_at: new Date() 
-      }
-    }) as Promise<Customer>;
-  }
-
-  async createAiInsight(data: Omit<any, 'id' | 'created_at' | 'is_reviewed'>): Promise<any> {
-    return prisma.ai_insights.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        is_reviewed: false,
-        created_at: new Date()
-      }
+  async updateCustomerField(customerId: string, field: string, value: any): Promise<any> {
+    const response = await fetch(`/api/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value })
     });
+    return response.json();
   }
 
-  async createSecurityEvent(data: Omit<any, 'id' | 'created_at' | 'resolved'>): Promise<any> {
-    return prisma.security_events.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        resolved: false,
-        created_at: new Date()
-      }
+  async updateCustomerRiskScore(customerId: string, riskScore: number, flags: string[]): Promise<any> {
+    const response = await fetch(`/api/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ risk_score: riskScore, ai_underwriting_flags: flags })
     });
+    return response.json();
   }
 
-  async createPerformanceMetric(data: Omit<any, 'id' | 'created_at'>): Promise<any> {
-    return prisma.performance_metrics.create({
-      data: {
-        ...data,
-        id: crypto.randomUUID(),
-        created_at: new Date()
-      }
-    });
+  async getSecurityEvents(tenantId: string): Promise<SecurityEvent[]> {
+    const response = await fetch(`/api/security-events?tenant_id=${tenantId}`);
+    return response.json();
   }
 
-  async getAiInsights(tenantId: string): Promise<any[]> {
-    return prisma.ai_insights.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' },
-      take: 50
-    });
-  }
-
-  async getSecurityEvents(tenantId: string): Promise<any[]> {
-    return prisma.security_events.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' },
-      take: 50
-    });
-  }
-
-  async getPerformanceMetrics(tenantId: string): Promise<any[]> {
-    return prisma.performance_metrics.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'desc' },
-      take: 100
-    });
+  async getPerformanceMetrics(tenantId: string): Promise<PerformanceMetric[]> {
+    const response = await fetch(`/api/performance-metrics?tenant_id=${tenantId}`);
+    return response.json();
   }
 
   // Update operations
   async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
-    return prisma.customers.update({
-      where: { id: customerId },
-      data: {
-        ...updates,
-        updated_at: new Date()
-      }
-    }) as Promise<Customer>;
+    const response = await fetch(`/api/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update customer');
+    return response.json();
   }
 
   async deleteCustomer(customerId: string): Promise<void> {
-    await prisma.customers.update({
-      where: { id: customerId },
-      data: {
-        status: 'deleted',
-        deleted_at: new Date(),
-        updated_at: new Date()
-      }
+    const response = await fetch(`/api/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
     });
+    if (!response.ok) throw new Error('Failed to delete customer');
   }
 
   async updatePolicy(policyId: string, updates: Partial<CustomerPolicy>): Promise<CustomerPolicy> {
-    return prisma.customer_policies.update({
-      where: { id: policyId },
-      data: {
-        ...updates,
-        updated_at: new Date()
-      }
-    }) as Promise<CustomerPolicy>;
+    const response = await fetch(`/api/policies/${policyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update policy');
+    return response.json();
   }
 
   async deletePolicy(policyId: string): Promise<void> {
-    await prisma.customer_policies.update({
-      where: { id: policyId },
-      data: {
-        status: 'deleted',
-        deleted_at: new Date(),
-        updated_at: new Date()
-      }
+    const response = await fetch(`/api/policies/${policyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
     });
+    if (!response.ok) throw new Error('Failed to delete policy');
   }
 
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
-    return prisma.leads.update({
-      where: { id: leadId },
-      data: {
-        ...updates,
-        updated_at: new Date()
-      }
-    }) as Promise<Lead>;
+    const response = await fetch(`/api/leads/${leadId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update lead');
+    return response.json();
   }
 
   async deleteLead(leadId: string): Promise<void> {
-    await prisma.leads.update({
-      where: { id: leadId },
-      data: {
-        status: 'deleted',
-        deleted_at: new Date(),
-        updated_at: new Date()
-      }
+    const response = await fetch(`/api/leads/${leadId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
     });
+    if (!response.ok) throw new Error('Failed to delete lead');
   }
 
   async updateCommission(commissionId: string, updates: Partial<Commission>): Promise<Commission> {
-    return prisma.commissions.update({
-      where: { id: commissionId },
-      data: {
-        ...updates,
-        updated_at: new Date()
-      }
-    }) as Promise<Commission>;
+    const response = await fetch(`/api/commissions/${commissionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update commission');
+    return response.json();
   }
 
   async deleteCommission(commissionId: string): Promise<void> {
-    await prisma.commissions.delete({
-      where: { id: commissionId }
+    // Delete for commissions might be a real delete or soft delete. 
+    // Given the previous code used .delete, I'll use DELETE if I had it, but I added PATCH.
+    // I'll stick to DELETE for commissions if I add it to server, or PATCH if I prefer soft delete.
+    // The previous code was: await prisma.commissions.delete({ where: { id: commissionId } });
+    // Let's add DELETE to server too.
+    const response = await fetch(`/api/commissions/${commissionId}`, {
+      method: 'DELETE'
     });
+    if (!response.ok) throw new Error('Failed to delete commission');
   }
 
   async updateProfile(tenantId: string, updates: Partial<Profile>): Promise<Profile> {
-    return prisma.profiles.update({
-      where: { tenant_id: tenantId },
-      data: { ...updates, updated_at: new Date() }
-    }) as Promise<Profile>;
+    const response = await fetch(`/api/profiles/${tenantId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return response.json();
   }
 }
 

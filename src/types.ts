@@ -36,6 +36,7 @@ export interface Customer {
   address?: string;
   status: 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'deleted';
   assigned_to?: string;
+  request_changes_notes?: string;
   risk_score?: number;
   ai_underwriting_flags?: string[];
   document_verification_status?: 'pending' | 'verified' | 'failed';

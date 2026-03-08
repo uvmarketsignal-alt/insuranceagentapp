@@ -1,0 +1,3 @@
+full_name,email,phone,status,assigned_to,request_changes_notes
+"Test Customer 1","test1@example.com","1234567890","active","fe48b618-42d6-4611-b1ca-133634cedae6","Initial test import"
+"Test Customer 2","test2@example.com","0987654321","pending","fe48b618-42d6-4611-b1ca-133634cedae6","Bulk upload verification"

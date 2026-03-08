@@ -80,6 +80,7 @@ interface AppState {
   installPrompt: any | null;
   reAuthRequired: boolean;
   reAuthAttempts: number;
+  isInitialLoading: boolean;
   // App Settings (owner can change)
   appName: string;
   appLogo: string | null;
@@ -119,7 +120,12 @@ interface AppState {
   rejectCustomer: (customerId: string, notes?: string) => Promise<void>;
   requestChanges: (customerId: string, notes: string) => Promise<void>;
   bulkImportCustomers: (customers: Array<Omit<Customer, 'id' | 'created_at' | 'updated_at'>>) => Promise<void>;
-  addDocument: (data: Omit<Document, 'id' | 'created_at'>) => Promise<Document>;
+  bulkAddCustomersAndPolicies: (items: Array<{
+    customer: Omit<Customer, 'id' | 'created_at' | 'updated_at'>;
+    policy: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at' | 'customer_id'>;
+  }>) => Promise<void>;
+  addDocument: (doc: Omit<Document, 'id' | 'created_at'>) => Promise<Document>;
+  uploadFile: (file: File) => Promise<{ url: string; filename: string; size: number; type: string }>;
   addPolicy: (data: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at'>) => Promise<CustomerPolicy>;
   updatePolicy: (policyId: string, updates: Partial<CustomerPolicy>) => Promise<CustomerPolicy>;
   deletePolicy: (policyId: string) => Promise<void>;
@@ -177,6 +183,7 @@ export const useStore = create<AppState>()(
       installPrompt: null,
       reAuthRequired: false,
       reAuthAttempts: 0,
+      isInitialLoading: false,
       appName: 'UV Insurance Agency',
       appLogo: null,
       customers: [],
@@ -366,10 +373,10 @@ export const useStore = create<AppState>()(
       approveCustomer: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        await dbService.updateCustomerStatus(customerId, 'approved', tenant.id);
+        const updated = await dbService.updateCustomerStatus(customerId, 'approved', tenant.id);
         set((state) => ({
           customers: state.customers.map((c) =>
-            c.id === customerId ? { ...c, status: 'approved', assigned_to: tenant.id } : c
+            c.id === customerId ? updated : c
           ),
         }));
         await get().addAuditLog({
@@ -381,10 +388,10 @@ export const useStore = create<AppState>()(
       rejectCustomer: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        await dbService.updateCustomerStatus(customerId, 'rejected', tenant.id);
+        const updated = await dbService.updateCustomerStatus(customerId, 'rejected', tenant.id);
         set((state) => ({
           customers: state.customers.map((c) =>
-            c.id === customerId ? { ...c, status: 'rejected', assigned_to: tenant.id } : c
+            c.id === customerId ? updated : c
           ),
         }));
         await get().addAuditLog({
@@ -396,10 +403,10 @@ export const useStore = create<AppState>()(
       requestChanges: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        await dbService.updateCustomerStatus(customerId, 'changes_requested', tenant.id);
+        const updated = await dbService.updateCustomerStatus(customerId, 'changes_requested', tenant.id, notes);
         set((state) => ({
           customers: state.customers.map((c) =>
-            c.id === customerId ? { ...c, status: 'changes_requested', assigned_to: tenant.id } : c
+            c.id === customerId ? updated : c
           ),
         }));
         await get().addAuditLog({
@@ -418,6 +425,44 @@ export const useStore = create<AppState>()(
         }
       },
 
+      bulkAddCustomersAndPolicies: async (items) => {
+        const { tenant } = get();
+        if (!tenant) throw new Error('Not authenticated');
+        
+        for (const item of items) {
+          try {
+            // Create customer first
+            const customer = await dbService.createCustomer({ 
+              ...item.customer, 
+              tenant_id: tenant.id 
+            });
+            
+            // Create associated policy
+            const policy = await dbService.createPolicy({
+              ...item.policy,
+              customer_id: customer.id,
+              tenant_id: tenant.id
+            } as any);
+            
+            set((state) => ({ 
+              customers: [customer, ...state.customers],
+              policies: [policy, ...state.policies]
+            }));
+            
+            await get().addAuditLog({ 
+              tenant_id: tenant.id, 
+              action: 'bulk_import', 
+              entity_type: 'customer', 
+              entity_id: customer.id,
+              new_values: `Imported with policy ${policy.policy_number}`
+            });
+          } catch (err) {
+            console.error('Failed to import item:', err);
+            // Continue with others
+          }
+        }
+      },
+
       // ── DOCUMENTS ────────────────────────────────────────────────────────
       addDocument: async (data) => {
         const { tenant } = get();
@@ -426,6 +471,10 @@ export const useStore = create<AppState>()(
         set((state) => ({ documents: [doc, ...state.documents] }));
         await get().addAuditLog({ tenant_id: tenant.id, action: 'upload', entity_type: 'document', entity_id: doc.id });
         return doc;
+      },
+
+      uploadFile: async (file) => {
+        return dbService.uploadFile(file);
       },
 
       // ── POLICIES ─────────────────────────────────────────────────────────
@@ -693,6 +742,11 @@ export const useStore = create<AppState>()(
 
       // ── DATA LOADING ─────────────────────────────────────────────────────
       loadInitialData: async (tenantId) => {
+        set({ isInitialLoading: true });
+        const { tenant } = get();
+        const role = tenant?.role;
+        const userId = tenant?.id;
+
         try {
           const [
             customers, documents, auditLogs, notifications, policies,
@@ -700,15 +754,15 @@ export const useStore = create<AppState>()(
             familyMembers, endorsements, messageTemplates, complianceReports,
             knowledgeArticles, employees,
           ] = await Promise.all([
-            dbService.getCustomers(tenantId),
-            dbService.getDocuments(tenantId),
+            dbService.getCustomers(tenantId, role, userId),
+            dbService.getDocuments(tenantId, role, userId),
             dbService.getAuditLogs(tenantId),
             dbService.getNotifications(tenantId),
-            dbService.getPolicies(tenantId),
-            dbService.getClaims(tenantId),
-            dbService.getCommissions(tenantId),
-            dbService.getLeads(tenantId),
-            dbService.getRenewals(tenantId),
+            dbService.getPolicies(tenantId, role, userId),
+            dbService.getClaims(tenantId, role, userId),
+            dbService.getCommissions(tenantId, role, userId),
+            dbService.getLeads(tenantId, role, userId),
+            dbService.getRenewals(tenantId, role, userId),
             dbService.getPremiumPayments(tenantId),
             dbService.getFamilyMembers(tenantId),
             dbService.getEndorsements(tenantId),
@@ -725,6 +779,8 @@ export const useStore = create<AppState>()(
           });
         } catch (error) {
           console.error('Failed to load initial data:', error);
+        } finally {
+          set({ isInitialLoading: false });
         }
       },
 

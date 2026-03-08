@@ -200,14 +200,12 @@ export default function DocumentsPage() {
                           >
                             <Eye className="w-5 h-5" />
                           </button>
-                          {tenant?.role === 'owner' && (
-                            <button
-                              onClick={() => handleDownload(doc.id)}
-                              className="p-3 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-colors"
-                            >
-                              <Download className="w-5 h-5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleDownload(doc.id)}
+                            className="p-3 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-colors"
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -242,12 +240,6 @@ export default function DocumentsPage() {
                       </p>
                     </div>
 
-                    {/* Security Badge for Employees */}
-                    {tenant?.role === 'employee' && (
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-red-500/90 text-white text-xs rounded-full">
-                        View Only
-                      </div>
-                    )}
                   </motion.div>
                 );
               })}
@@ -275,7 +267,7 @@ export default function DocumentsPage() {
         onClose={() => setViewerOpen(false)}
         documents={selectedDocuments}
         initialIndex={viewerIndex}
-        canDownload={tenant?.role === 'owner'}
+        canDownload={true}
         onDownload={handleDownload}
       />
     </div>

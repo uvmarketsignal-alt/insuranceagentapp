@@ -22,6 +22,59 @@ export default function OwnerDashboard({ onNavigate }: Props) {
     unreadNotifications: 0,
   });
 
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importType, setImportType] = useState<'leads' | 'customers'>('leads');
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !tenant) return;
+
+    setImportStatus('Processing...');
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        let data: any[] = [];
+        const content = e.target?.result as string;
+        
+        if (file.name.endsWith('.json')) {
+          data = JSON.parse(content);
+        } else if (file.name.endsWith('.csv')) {
+          // Simple CSV parse
+          const lines = content.split('\n');
+          const headers = lines[0].split(',').map(h => h.trim());
+          data = lines.slice(1).filter(l => l.trim()).map(line => {
+            const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            return headers.reduce((obj, header, i) => {
+              obj[header] = values[i];
+              return obj;
+            }, {} as any);
+          });
+        }
+
+        const endpoint = importType === 'leads' ? '/api/leads/bulk-import' : '/api/customers/bulk-import';
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id: tenant.id,
+            [importType]: data
+          })
+        });
+
+        if (!response.ok) throw new Error('Bulk import failed');
+        const result = await response.json();
+        setImportStatus(`Successfully imported ${result.count} ${importType}!`);
+        loadInitialData(tenant.id); // Refresh data
+      } catch (error) {
+        console.error('Import error:', error);
+        setImportStatus('Import failed. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   useEffect(() => {
     if (tenant) loadInitialData(tenant.id);
   }, [tenant?.id]);
@@ -277,10 +330,11 @@ export default function OwnerDashboard({ onNavigate }: Props) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Add Customer', icon: Plus, page: 'new-customer', color: 'from-blue-500 to-blue-600' },
           { label: 'View Approvals', icon: FileCheck, page: 'approvals', color: 'from-amber-500 to-orange-500' },
+          { label: 'Bulk Import', icon: Plus, action: () => setShowImportModal(true), color: 'from-indigo-500 to-indigo-600' },
           { label: 'Manage Employees', icon: Users, page: 'employees', color: 'from-purple-500 to-purple-600' },
           { label: 'View Reports', icon: BarChart2, page: 'analytics', color: 'from-green-500 to-emerald-500' },
         ].map(action => {
@@ -288,7 +342,7 @@ export default function OwnerDashboard({ onNavigate }: Props) {
           return (
             <motion.button key={action.label}
               whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate(action.page as Page)}
+              onClick={() => 'page' in action ? onNavigate(action.page as Page) : action.action?.()}
               className={`p-4 bg-gradient-to-br ${action.color} text-white rounded-2xl font-medium shadow-sm hover:shadow-md transition-all flex flex-col items-center gap-2`}>
               <Icon className="w-5 h-5" />
               <span className="text-xs text-center leading-tight">{action.label}</span>
@@ -296,6 +350,53 @@ export default function OwnerDashboard({ onNavigate }: Props) {
           );
         })}
       </div>
+
+      {/* Bulk Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <h2 className="text-xl font-bold mb-2">Bulk Import Data</h2>
+            <p className="text-slate-500 text-sm mb-6">Upload a JSON or CSV file to import multiple records at once.</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Import Type</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="importType" checked={importType === 'leads'} onChange={() => setImportType('leads')} />
+                    <span className="text-sm">Leads</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="importType" checked={importType === 'customers'} onChange={() => setImportType('customers')} />
+                    <span className="text-sm">Customers</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
+                <input type="file" id="bulkFile" className="hidden" accept=".json,.csv" onChange={handleFileUpload} />
+                <label htmlFor="bulkFile" className="cursor-pointer">
+                  <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Plus className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-900">Click to upload or drag and drop</p>
+                  <p className="text-xs text-slate-400 mt-1">JSON or CSV files supported</p>
+                </label>
+              </div>
+
+              {importStatus && (
+                <div className={`p-3 rounded-lg text-sm ${importStatus.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {importStatus}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-8">
+              <button onClick={() => { setShowImportModal(false); setImportStatus(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg">Cancel</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
