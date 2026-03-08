@@ -1,0 +1,490 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model tenants {
+  id                   String                 @id @default(uuid())
+  name                 String                 @unique
+  email                String                 @unique
+  password             String
+  role                 String                 @default("owner")
+  is_active            Boolean                @default(true)
+  created_at           DateTime               @default(now())
+  updated_at           DateTime               @updatedAt
+  profiles             profiles[]
+  customers            customers[]
+  documents            documents[]
+  audit_logs           audit_logs[]
+  notifications        notifications[]
+  customer_policies    customer_policies[]
+  download_logs        download_logs[]
+  claims               claims[]
+  commissions          commissions[]
+  leads                leads[]
+  renewals             renewals[]
+  premium_payments     premium_payments[]
+  family_members       family_members[]
+  endorsements         endorsements[]
+  message_templates    message_templates[]
+  compliance_reports   compliance_reports[]
+  knowledge_articles   knowledge_articles[]
+  ai_insights          ai_insights[]
+  workflow_automations workflow_automations[]
+  security_events      security_events[]
+  two_factor_auth      two_factor_auth?
+  api_keys             api_keys[]
+  performance_metrics  performance_metrics[]
+}
+
+model profiles {
+  id            String    @id @default(uuid())
+  tenant_id     String
+  full_name     String
+  phone         String?
+  avatar_url    String?
+  employee_code String?
+  department    String?
+  join_date     DateTime?
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+}
+
+model customers {
+  id            String    @id @default(uuid())
+  tenant_id     String
+  full_name     String
+  phone         String
+  email         String?
+  date_of_birth DateTime?
+  gender        String?
+  occupation    String?
+  annual_income Decimal?
+  address       String?
+  status        String    @default("pending")
+  assigned_to   String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  tenant            tenants             @relation(fields: [tenant_id], references: [id])
+  documents         documents[]
+  customer_policies customer_policies[]
+  family_members    family_members[]
+
+  @@index([tenant_id])
+  @@index([status])
+}
+
+model documents {
+  id                String   @id @default(uuid())
+  customer_id       String
+  tenant_id         String
+  document_type     String
+  file_name         String
+  file_url          String
+  file_size         Int?
+  uploaded_by       String
+  is_camera_capture Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  customer customers @relation(fields: [customer_id], references: [id])
+  tenant   tenants   @relation(fields: [tenant_id], references: [id])
+
+  @@index([customer_id])
+  @@index([tenant_id])
+}
+
+model audit_logs {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  action      String
+  entity_type String
+  entity_id   String?
+  old_values  String?
+  new_values  String?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([created_at])
+}
+
+model notifications {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  title      String
+  message    String
+  type       String   @default("info")
+  is_read    Boolean  @default(false)
+  priority   String   @default("low")
+  action_url String?
+  created_at DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([is_read])
+}
+
+model customer_policies {
+  id                String    @id @default(uuid())
+  customer_id       String
+  tenant_id         String
+  policy_type       String
+  policy_number     String    @unique
+  insurer           String
+  sum_assured       Decimal?
+  premium_amount    Decimal?
+  premium_frequency String?
+  start_date        DateTime?
+  end_date          DateTime?
+  status            String    @default("active")
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  customer         customers          @relation(fields: [customer_id], references: [id])
+  tenant           tenants            @relation(fields: [tenant_id], references: [id])
+  claims           claims[]
+  commissions      commissions[]
+  renewals         renewals[]
+  premium_payments premium_payments[]
+  endorsements     endorsements[]
+
+  @@index([customer_id])
+  @@index([tenant_id])
+  @@index([policy_type])
+  @@index([end_date])
+}
+
+model download_logs {
+  id            String   @id @default(uuid())
+  tenant_id     String
+  document_id   String
+  downloaded_by String
+  ip_address    String?
+  user_agent    String?
+  created_at    DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([document_id])
+}
+
+model claims {
+  id            String   @id @default(uuid())
+  policy_id     String
+  tenant_id     String
+  claim_number  String   @unique
+  claim_type    String
+  incident_date DateTime
+  claim_amount  Decimal
+  status        String   @default("Filed")
+  description   String?
+  documents     String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  policy customer_policies @relation(fields: [policy_id], references: [id])
+  tenant tenants           @relation(fields: [tenant_id], references: [id])
+
+  @@index([policy_id])
+  @@index([tenant_id])
+  @@index([status])
+}
+
+model commissions {
+  id                String    @id @default(uuid())
+  policy_id         String
+  tenant_id         String
+  employee_id       String
+  commission_rate   Decimal
+  commission_amount Decimal
+  is_paid           Boolean   @default(false)
+  paid_date         DateTime?
+  due_date          DateTime?
+  created_at        DateTime  @default(now())
+
+  policy customer_policies @relation(fields: [policy_id], references: [id])
+  tenant tenants           @relation(fields: [tenant_id], references: [id])
+
+  @@index([policy_id])
+  @@index([tenant_id])
+  @@index([employee_id])
+  @@index([is_paid])
+}
+
+model leads {
+  id            String    @id @default(uuid())
+  tenant_id     String
+  full_name     String
+  phone         String
+  email         String?
+  source        String?
+  status        String    @default("New")
+  assigned_to   String?
+  notes         String?
+  next_followup DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([status])
+}
+
+model renewals {
+  id           String    @id @default(uuid())
+  policy_id    String
+  tenant_id    String
+  renewal_date DateTime
+  status       String    @default("pending")
+  notified     Boolean   @default(false)
+  notified_at  DateTime?
+  processed    Boolean   @default(false)
+  processed_at DateTime?
+  created_at   DateTime  @default(now())
+
+  policy customer_policies @relation(fields: [policy_id], references: [id])
+  tenant tenants           @relation(fields: [tenant_id], references: [id])
+
+  @@index([policy_id])
+  @@index([tenant_id])
+  @@index([renewal_date])
+}
+
+model premium_payments {
+  id             String   @id @default(uuid())
+  policy_id      String
+  tenant_id      String
+  amount         Decimal
+  payment_date   DateTime
+  payment_mode   String
+  transaction_id String?
+  status         String   @default("completed")
+  created_at     DateTime @default(now())
+
+  policy customer_policies @relation(fields: [policy_id], references: [id])
+  tenant tenants           @relation(fields: [tenant_id], references: [id])
+
+  @@index([policy_id])
+  @@index([tenant_id])
+  @@index([payment_date])
+}
+
+model family_members {
+  id            String    @id @default(uuid())
+  customer_id   String
+  tenant_id     String
+  full_name     String
+  relationship  String
+  date_of_birth DateTime?
+  phone         String?
+  email         String?
+  has_policy    Boolean   @default(false)
+  policy_id     String?
+  created_at    DateTime  @default(now())
+
+  customer customers @relation(fields: [customer_id], references: [id])
+  tenant   tenants   @relation(fields: [tenant_id], references: [id])
+
+  @@index([customer_id])
+  @@index([tenant_id])
+}
+
+model endorsements {
+  id               String    @id @default(uuid())
+  policy_id        String
+  tenant_id        String
+  endorsement_type String
+  description      String
+  status           String    @default("pending")
+  approved_by      String?
+  approved_at      DateTime?
+  created_at       DateTime  @default(now())
+
+  policy customer_policies @relation(fields: [policy_id], references: [id])
+  tenant tenants           @relation(fields: [tenant_id], references: [id])
+
+  @@index([policy_id])
+  @@index([tenant_id])
+  @@index([status])
+}
+
+model message_templates {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  name       String
+  subject    String?
+  content    String
+  type       String   @default("email")
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([type])
+}
+
+model compliance_reports {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  report_type  String
+  period_start DateTime
+  period_end   DateTime
+  data         String?
+  status       String    @default("draft")
+  submitted_at DateTime?
+  created_at   DateTime  @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([report_type])
+  @@index([period_start])
+}
+
+model knowledge_articles {
+  id           String   @id @default(uuid())
+  tenant_id    String
+  title        String
+  content      String
+  category     String
+  tags         String?
+  view_count   Int      @default(0)
+  is_published Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([category])
+  @@index([is_published])
+}
+
+// Premium Feature Tables
+
+model ai_insights {
+  id                         String   @id @default(uuid())
+  tenant_id                  String
+  insight_type               String
+  entity_type                String
+  entity_id                  String
+  confidence_score           Decimal  @db.Decimal(5, 2)
+  insight_data               String
+  actionable_recommendations String[] @default([])
+  is_reviewed                Boolean  @default(false)
+  created_at                 DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([insight_type])
+  @@index([entity_type])
+  @@index([created_at])
+}
+
+model workflow_automations {
+  id                String   @id @default(uuid())
+  tenant_id         String
+  name              String
+  trigger_type      String
+  trigger_condition String
+  actions           Json
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([trigger_type])
+  @@index([is_active])
+}
+
+model security_events {
+  id                 String   @id @default(uuid())
+  tenant_id          String
+  event_type         String
+  severity           String
+  ip_address         String
+  user_agent         String
+  device_fingerprint String
+  location           String?
+  description        String
+  metadata           String?
+  resolved           Boolean  @default(false)
+  created_at         DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([severity])
+  @@index([created_at])
+  @@index([resolved])
+}
+
+model two_factor_auth {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  secret       String
+  is_enabled   Boolean   @default(false)
+  backup_codes String[]  @default([])
+  last_used    DateTime?
+  created_at   DateTime  @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id])
+}
+
+model api_keys {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  name         String
+  key_hash     String
+  permissions  String[]  @default([])
+  ip_whitelist String[]  @default([])
+  last_used    DateTime?
+  is_active    Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  expires_at   DateTime?
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([is_active])
+  @@index([key_hash])
+}
+
+model performance_metrics {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  metric_type String
+  value       Decimal  @db.Decimal(10, 2)
+  unit        String
+  metadata    String?
+  created_at  DateTime @default(now())
+
+  tenant tenants @relation(fields: [tenant_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([metric_type])
+  @@index([created_at])
+}
