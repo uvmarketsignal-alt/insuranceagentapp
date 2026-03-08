@@ -59,6 +59,35 @@ app.post('/api/tenants', async (req, res) => {
   }
 });
 
+app.get('/api/customers', async (req, res) => {
+  try {
+    const tenantId = req.query.tenant_id;
+    let query = 'SELECT * FROM customers';
+    let params: string[] = [];
+    
+    if (tenantId) {
+      query += ' WHERE tenant_id = $1';
+      params.push(tenantId as string);
+    }
+    
+    // Fetch customers
+    const { rows: customers } = await pool.query(query, params);
+    
+    // For each customer, fetch their policies
+    for (let customer of customers) {
+      const { rows: policies } = await pool.query(
+          'SELECT * FROM customer_policies WHERE customer_id = $1',
+          [customer.id]
+      );
+      customer.policies = policies;
+    }
+    
+    res.json(customers);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start the Express server
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
