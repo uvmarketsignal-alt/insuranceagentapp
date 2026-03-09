@@ -102,7 +102,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   next(err);
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // --- Auth Endpoints ---
 app.post('/api/auth/login', (req, res) => {
