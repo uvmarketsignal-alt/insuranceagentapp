@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { dbService } from './lib/db-service';
-import { hashPassword, verifyPassword } from './utils/password';
+
+import toast from 'react-hot-toast';
 import type {
   Tenant, Profile, Customer, Document, AuditLog, Notification,
   CustomerPolicy, Claim, Commission, Lead, Renewal, PremiumPayment,
@@ -9,64 +10,6 @@ import type {
   KnowledgeArticle, NewCustomerData, WorkflowAutomation, SecurityEvent,
   TwoFactorAuth, ApiKey, PerformanceMetric, AiInsight
 } from './types';
-
-// ─── DEMO TENANTS (passwords use deterministic hash) ──────────────────────────
-const DEMO_TENANTS: Tenant[] = [
-  {
-    id: 'tenant_001',
-    name: 'UV',
-    email: 'uv@uvinsurance.in',
-    password: hashPassword('UV@Owner2025'),
-    role: 'owner',
-    is_active: true,
-    created_at: new Date('2024-01-01'),
-    updated_at: new Date('2024-01-01'),
-  },
-  {
-    id: 'tenant_002',
-    name: 'Raghul',
-    email: 'raghul@uvinsurance.in',
-    password: hashPassword('Raghul@Emp2025'),
-    role: 'employee',
-    is_active: true,
-    created_at: new Date('2024-01-01'),
-    updated_at: new Date('2024-01-01'),
-  },
-  {
-    id: 'tenant_003',
-    name: 'Vasu',
-    email: 'vasu@uvinsurance.in',
-    password: hashPassword('Vasu@Emp2025'),
-    role: 'employee',
-    is_active: true,
-    created_at: new Date('2024-01-01'),
-    updated_at: new Date('2024-01-01'),
-  },
-];
-
-const DEMO_PROFILES: Profile[] = [
-  {
-    id: 'profile_001', tenant_id: 'tenant_001', full_name: 'UV',
-    phone: '+919876543210', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=UV',
-    employee_code: 'OWN-001', department: 'Management',
-    join_date: new Date('2024-01-01'), is_active: true,
-    created_at: new Date('2024-01-01'), updated_at: new Date('2024-01-01'),
-  },
-  {
-    id: 'profile_002', tenant_id: 'tenant_002', full_name: 'Raghul',
-    phone: '+919876543211', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Raghul',
-    employee_code: 'EMP-001', department: 'Sales',
-    join_date: new Date('2024-01-01'), is_active: true,
-    created_at: new Date('2024-01-01'), updated_at: new Date('2024-01-01'),
-  },
-  {
-    id: 'profile_003', tenant_id: 'tenant_003', full_name: 'Vasu',
-    phone: '+919876543212', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vasu',
-    employee_code: 'EMP-002', department: 'Operations',
-    join_date: new Date('2024-01-01'), is_active: true,
-    created_at: new Date('2024-01-01'), updated_at: new Date('2024-01-01'),
-  },
-];
 
 // ─── APP STATE INTERFACE ───────────────────────────────────────────────────────
 interface AppState {
@@ -122,7 +65,7 @@ interface AppState {
   bulkImportCustomers: (customers: Array<Omit<Customer, 'id' | 'created_at' | 'updated_at'>>) => Promise<void>;
   bulkAddCustomersAndPolicies: (items: Array<{
     customer: Omit<Customer, 'id' | 'created_at' | 'updated_at'>;
-    policy: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at' | 'customer_id'>;
+    policy?: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at' | 'customer_id'>;
   }>) => Promise<void>;
   addDocument: (doc: Omit<Document, 'id' | 'created_at'>) => Promise<Document>;
   uploadFile: (file: File) => Promise<{ url: string; filename: string; size: number; type: string }>;
@@ -161,6 +104,7 @@ interface AppState {
   resetReAuthAttempts: () => void;
   loadInitialData: (tenantId: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  checkAuth: () => Promise<void>;
   setNewCustomerStep: (step: number, data: any) => void;
   clearNewCustomerData: () => void;
   calculateRiskScore: (customerId: string) => Promise<{ riskScore: number; flags: string[] }>;
@@ -211,43 +155,35 @@ export const useStore = create<AppState>()(
       newCustomerData: {},
 
       // ── AUTH ──────────────────────────────────────────────────────────────
+      checkAuth: async () => {
+        if (!get().isAuthenticated) return;
+        try {
+          const authData = await dbService.getMe();
+          if (!authData) {
+            get().logout();
+          } else {
+            set({ tenant: authData.tenant, profile: authData.profile });
+          }
+        } catch {
+          get().logout();
+        }
+      },
+
       login: async (email: string, password: string) => {
         try {
           const normalizedEmail = email.trim().toLowerCase();
           const normalizedPassword = password.trim();
 
-          // Check demo tenants first (most reliable)
-          const demoTenant = DEMO_TENANTS.find(
-            (t) =>
-              t.email.toLowerCase() === normalizedEmail &&
-              verifyPassword(normalizedPassword, t.password)
-          );
-
-          if (demoTenant) {
-            const demoProfile =
-              DEMO_PROFILES.find((p) => p.tenant_id === demoTenant.id) || null;
-            set({
-              tenant: demoTenant,
-              profile: demoProfile,
-              isAuthenticated: true,
-              sessionStart: new Date(),
-            });
-            // Load data in background (don't await to keep login fast)
-            get().loadInitialData(demoTenant.id).catch(console.error);
-            return true;
-          }
-
           // Try DB
           try {
-            const tenant = await dbService.getTenantByEmail(normalizedEmail);
-            if (tenant && verifyPassword(normalizedPassword, tenant.password)) {
-              const profile = await dbService.getProfileByTenantId(tenant.id);
-              set({ tenant, profile, isAuthenticated: true, sessionStart: new Date() });
-              get().loadInitialData(tenant.id).catch(console.error);
+            const authResponse = await dbService.login(normalizedEmail, normalizedPassword);
+            if (authResponse && authResponse.tenant) {
+              set({ tenant: authResponse.tenant, profile: authResponse.profile, isAuthenticated: true, sessionStart: new Date() });
+              get().loadInitialData(authResponse.tenant.id).catch(console.error);
               return true;
             }
-          } catch {
-            // DB unavailable – already handled by demo check above
+          } catch (e) {
+            console.error('API login failed', e);
           }
 
           return false;
@@ -264,6 +200,7 @@ export const useStore = create<AppState>()(
             .addAuditLog({ tenant_id: tenant.id, action: 'logout', entity_type: 'auth' })
             .catch(console.error);
         }
+        dbService.logout().catch(console.error);
         set({
           tenant: null, profile: null, isAuthenticated: false,
           sessionStart: null, reAuthRequired: false, reAuthAttempts: 0,
@@ -320,15 +257,12 @@ export const useStore = create<AppState>()(
 
         // If employee, notify owner for approval
         if (tenant.role === 'employee') {
-          const owner = DEMO_TENANTS.find((t) => t.role === 'owner');
-          if (owner) {
-            await get().addNotification({
-              tenant_id: owner.id,
-              title: '🔔 New Customer Awaiting Approval',
-              message: `${tenant.name} submitted customer "${customer.full_name}" for your approval.`,
-              type: 'warning', priority: 'high', action_url: 'approvals',
-            });
-          }
+          await get().addNotification({
+            tenant_id: 'tenant_001', // Default owner id for this demo
+            title: '🔔 New Customer Awaiting Approval',
+            message: `${tenant.name} submitted customer "${customer.full_name}" for your approval.`,
+            type: 'warning', priority: 'high', action_url: 'approvals',
+          });
         } else {
           await get().addNotification({
             tenant_id: tenant.id,
@@ -428,6 +362,9 @@ export const useStore = create<AppState>()(
       bulkAddCustomersAndPolicies: async (items) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
+        let successCount = 0;
+        let failCount = 0;
+        const loadingToast = toast.loading(`Importing ${items.length} records...`);
         
         for (const item of items) {
           try {
@@ -438,15 +375,18 @@ export const useStore = create<AppState>()(
             });
             
             // Create associated policy
-            const policy = await dbService.createPolicy({
-              ...item.policy,
-              customer_id: customer.id,
-              tenant_id: tenant.id
-            } as any);
+            let policy: CustomerPolicy | undefined = undefined;
+            if (item.policy) {
+              policy = await dbService.createPolicy({
+                ...item.policy,
+                customer_id: customer.id,
+                tenant_id: tenant.id
+              } as any);
+            }
             
             set((state) => ({ 
               customers: [customer, ...state.customers],
-              policies: [policy, ...state.policies]
+              policies: policy ? [policy, ...state.policies] : state.policies
             }));
             
             await get().addAuditLog({ 
@@ -454,12 +394,21 @@ export const useStore = create<AppState>()(
               action: 'bulk_import', 
               entity_type: 'customer', 
               entity_id: customer.id,
-              new_values: `Imported with policy ${policy.policy_number}`
+              new_values: policy ? `Imported with policy ${policy.policy_number}` : `Imported customer only`
             });
+            successCount++;
           } catch (err) {
             console.error('Failed to import item:', err);
+            failCount++;
             // Continue with others
           }
+        }
+
+        toast.dismiss(loadingToast);
+        if (failCount === 0) {
+          toast.success(`Successfully imported ${successCount} records!`);
+        } else {
+          toast.error(`Imported ${successCount} records. Failed: ${failCount}`);
         }
       },
 
@@ -679,7 +628,7 @@ export const useStore = create<AppState>()(
       addEmployee: async (data) => {
         const { tenant } = get();
         if (!tenant || tenant.role !== 'owner') throw new Error('Not authorized');
-        const employee = await dbService.createEmployee(data);
+        const employee = await dbService.createEmployee({ ...data, parent_id: tenant.id });
         const employees = await dbService.getEmployees(tenant.id);
         set({ employees });
         return employee;
@@ -746,36 +695,38 @@ export const useStore = create<AppState>()(
         const { tenant } = get();
         const role = tenant?.role;
         const userId = tenant?.id;
+        const effectiveTenantId = tenant?.parent_id || tenantId; // Employees see agency data
 
         try {
           const [
             customers, documents, auditLogs, notifications, policies,
             claims, commissions, leads, renewals, premiumPayments,
             familyMembers, endorsements, messageTemplates, complianceReports,
-            knowledgeArticles, employees,
+            knowledgeArticles, employees, aiInsights
           ] = await Promise.all([
-            dbService.getCustomers(tenantId, role, userId),
-            dbService.getDocuments(tenantId, role, userId),
-            dbService.getAuditLogs(tenantId),
-            dbService.getNotifications(tenantId),
-            dbService.getPolicies(tenantId, role, userId),
-            dbService.getClaims(tenantId, role, userId),
-            dbService.getCommissions(tenantId, role, userId),
-            dbService.getLeads(tenantId, role, userId),
-            dbService.getRenewals(tenantId, role, userId),
-            dbService.getPremiumPayments(tenantId),
-            dbService.getFamilyMembers(tenantId),
-            dbService.getEndorsements(tenantId),
-            dbService.getMessageTemplates(tenantId),
-            dbService.getComplianceReports(tenantId),
-            dbService.getKnowledgeArticles(tenantId),
-            dbService.getEmployees(tenantId),
+            dbService.getCustomers(effectiveTenantId, role, userId),
+            dbService.getDocuments(effectiveTenantId, role, userId),
+            dbService.getAuditLogs(effectiveTenantId),
+            dbService.getNotifications(effectiveTenantId),
+            dbService.getPolicies(effectiveTenantId, role, userId),
+            dbService.getClaims(effectiveTenantId, role, userId),
+            dbService.getCommissions(effectiveTenantId, role, userId),
+            dbService.getLeads(effectiveTenantId, role, userId),
+            dbService.getRenewals(effectiveTenantId, role, userId),
+            dbService.getPremiumPayments(effectiveTenantId),
+            dbService.getFamilyMembers(effectiveTenantId),
+            dbService.getEndorsements(effectiveTenantId),
+            dbService.getMessageTemplates(effectiveTenantId),
+            dbService.getComplianceReports(effectiveTenantId),
+            dbService.getKnowledgeArticles(effectiveTenantId),
+            dbService.getEmployees(effectiveTenantId),
+            dbService.getAiInsights(effectiveTenantId),
           ]);
           set({
             customers, documents, auditLogs, notifications, policies,
             claims, commissions, leads, renewals, premiumPayments,
             familyMembers, endorsements, messageTemplates, complianceReports,
-            knowledgeArticles, employees,
+            knowledgeArticles, employees, aiInsights,
           });
         } catch (error) {
           console.error('Failed to load initial data:', error);

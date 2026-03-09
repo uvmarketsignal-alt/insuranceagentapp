@@ -5,6 +5,7 @@ export interface Tenant {
   password: string;
   role: 'owner' | 'employee';
   is_active: boolean;
+  parent_id?: string;
   created_at: Date;
   updated_at: Date;
 }

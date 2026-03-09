@@ -8,6 +8,7 @@ import { ReAuthModal } from './components/ReAuthModal';
 import { CommandPalette } from './components/CommandPalette';
 import { NotificationPanel } from './components/NotificationPanel';
 import { InstallButton } from './components/InstallButton';
+import { Toaster } from 'react-hot-toast';
 
 // Lazy load all pages
 const OwnerDashboard    = lazy(() => import('./pages/OwnerDashboard'));
@@ -44,7 +45,11 @@ export function App() {
   const [currentPage, setCurrentPage]           = useState<Page>('login');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const { isAuthenticated, tenant, setDarkMode, darkMode } = useStore();
+  const { isAuthenticated, tenant, setDarkMode, darkMode, checkAuth } = useStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   // Dark mode
   useEffect(() => {
@@ -61,9 +66,6 @@ export function App() {
 
   // Service Worker + PWA + Keyboard shortcuts
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
-    }
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
@@ -141,6 +143,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen">
+        <Toaster position="top-right" />
         <Login onLogin={handleLogin} />
         {showCommandPalette && (
           <CommandPalette onClose={() => setShowCommandPalette(false)} onNavigate={navigate} />
@@ -161,6 +164,7 @@ export function App() {
         </Suspense>
       </Layout>
 
+      <Toaster position="top-right" />
       <SessionTimeout />
       <ReAuthModal />
 

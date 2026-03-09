@@ -156,25 +156,29 @@ function BulkImportStep({ onImport, onCancel }: { onImport: (data: any[]) => voi
     if (previewData.length === 0) return;
 
     // Map the imported columns to our store schema
-    const mapped = previewData.map(row => ({
-      customer: {
-        full_name: row['Full Name'] || row['Name'] || '',
-        phone: String(row['Phone'] || row['Mobile'] || ''),
-        email: row['Email'] || '',
-        occupation: row['Occupation'] || '',
-        annual_income: String(row['Income'] || row['Annual Income'] || ''),
-        address: row['Address'] || '',
-        status: 'pending' as const,
-      },
-      policy: {
-        policy_type: String(row['Policy Type'] || row['Type'] || 'others').toLowerCase(),
-        policy_number: String(row['Policy Number'] || row['Number'] || `POL-${Date.now()}`),
-        insurer: row['Insurer'] || row['Company'] || '',
-        sum_assured: Number(row['Sum Assured'] || row['IDV'] || 0),
-        premium_amount: Number(row['Premium'] || 0),
-        status: 'active' as const,
-      }
-    }));
+    const mapped = previewData.map(row => {
+      const hasPolicy = !!(row['Policy Type'] || row['Type'] || row['Policy Number'] || row['Number']);
+
+      return {
+        customer: {
+          full_name: row['Full Name'] || row['Name'] || '',
+          phone: String(row['Phone'] || row['Mobile'] || ''),
+          email: row['Email'] || '',
+          occupation: row['Occupation'] || '',
+          annual_income: String(row['Income'] || row['Annual Income'] || ''),
+          address: row['Address'] || '',
+          status: 'pending' as const,
+        },
+        policy: hasPolicy ? {
+          policy_type: String(row['Policy Type'] || row['Type'] || 'others').toLowerCase(),
+          policy_number: String(row['Policy Number'] || row['Number'] || `POL-${Date.now()}`),
+          insurer: row['Insurer'] || row['Company'] || '',
+          sum_assured: Number(row['Sum Assured'] || row['IDV'] || 0),
+          premium_amount: Number(row['Premium'] || 0),
+          status: 'active' as const,
+        } : undefined
+      };
+    });
 
     onImport(mapped);
   };

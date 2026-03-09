@@ -105,13 +105,11 @@ export default function Layout({ children, onNavigate, currentPage, onNotificati
       </button>
 
       {/* Sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{
-          x: sidebarOpen ? 0 : -280,
-        }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed left-0 top-0 h-full w-72 bg-white/80 backdrop-blur-xl border-r border-white/20 shadow-xl z-40 overflow-y-auto"
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full w-72 bg-white/80 backdrop-blur-xl border-r border-white/20 shadow-xl z-40 overflow-y-auto transition-transform duration-300",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
       >
         <div className="p-6">
           {/* Logo and user info */}
@@ -181,7 +179,7 @@ export default function Layout({ children, onNavigate, currentPage, onNotificati
             </button>
           </div>
         </div>
-      </motion.aside>
+      </aside>
 
       {/* Main content */}
       <div className="lg:ml-72 min-h-screen">
