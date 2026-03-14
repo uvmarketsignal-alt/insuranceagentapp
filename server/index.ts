@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import { runInSandbox } from './sandbox.js';
+import { browserService } from './browser.js';
 
 dotenv.config();
 
@@ -578,7 +579,22 @@ app.patch('/api/profiles/:tenantId', requireAuth, async (req, res) => {
   export default app;
 
   if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    app.listen(PORT, () => {
+    // --- Automation Endpoints ---
+app.post('/api/automation/verify-policy', requireAuth, async (req, res) => {
+  const { portalUrl, policyNumber } = req.body;
+  if (!portalUrl || !policyNumber) {
+    return res.status(400).json({ error: 'Portal URL and Policy Number required' });
+  }
+  
+  try {
+    const result = await browserService.verifyPolicyStatus(portalUrl, policyNumber);
+    res.json({ success: true, message: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Automation failed' });
+  }
+});
+
+app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   }

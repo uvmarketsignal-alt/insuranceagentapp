@@ -11,6 +11,7 @@
     "start": "tsx server/index.ts"
   },
   "dependencies": {
+    "@browserbasehq/sdk": "^2.8.0",
     "@prisma/client": "^6.4.1",
     "@types/multer": "^2.1.0",
     "@vercel/analytics": "^2.0.1",
