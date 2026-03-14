@@ -1,3 +1,4 @@
+
 name: CI
 
 on:
@@ -28,7 +29,7 @@ jobs:
     - name: 'notify vercel'
       uses: 'vercel/repository-dispatch/actions/status@v1'
       with:
-        name: Vercel - insuranceapp: lint.
+        name: "Vercel - insuranceapp: lint."
 
     - name: Type check
       run: npx tsc --noEmit

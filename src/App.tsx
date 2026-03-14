@@ -10,6 +10,7 @@ import { NotificationPanel } from './components/NotificationPanel';
 import { InstallButton } from './components/InstallButton';
 import { Toaster } from 'react-hot-toast';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Lazy load all pages
@@ -212,6 +213,7 @@ export function App() {
       )}
       <InstallButton position="floating" />
       <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
