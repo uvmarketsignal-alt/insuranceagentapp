@@ -12,3 +12,4 @@ dist-ssr
 !.vscode/settings.json
 !.vscode/launch.json
 .vercel
+.env*.local
