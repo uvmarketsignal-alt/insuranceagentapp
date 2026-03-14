@@ -8,6 +8,7 @@ import { JSONFilePreset } from 'lowdb/node';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
+import { runInSandbox } from './sandbox.js';
 
 dotenv.config();
 
@@ -211,6 +212,39 @@ const generateAiInsights = (customer: any) => {
   };
 };
 
+/**
+ * Enhanced AI Underwriting using Vercel Sandbox for isolated rule execution.
+ */
+export const generateAiInsightsWithSandbox = async (customer: any) => {
+  const baseInsight = generateAiInsights(customer);
+  
+  // Example code to execute in sandbox - this could be dynamic rules from a database
+  const sandboxCode = `
+    const customer = ${JSON.stringify(customer)};
+    const riskScore = ${baseInsight.insight_data.risk_score};
+    
+    // Complex rule that might be untrusted or dynamic
+    let recommendation = "Standard Rule Applied";
+    if (riskScore > 60 && customer.occupation?.toLowerCase().includes('construction')) {
+      recommendation = "HIGH RISK ALERT: Construction workers with elevated risk score require manual site inspection.";
+    }
+    
+    console.log(recommendation);
+  `;
+
+  try {
+    const sandboxRecommendation = await runInSandbox(sandboxCode);
+    if (sandboxRecommendation) {
+      baseInsight.actionable_recommendations.push(sandboxRecommendation.trim());
+      baseInsight.insight_data.flags.push('Sandbox-Verified Strategy');
+    }
+  } catch (err) {
+    console.warn('⚠️ Sandbox execution failed, falling back to local reasoning:', err);
+  }
+
+  return baseInsight;
+};
+
 // --- Auth Endpoints ---
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
@@ -379,7 +413,7 @@ app.patch('/api/profiles/:tenantId', requireAuth, async (req, res) => {
 
       // AI Underwriting Hook for Customers
       if (table === 'customers') {
-        const insight = generateAiInsights(newItem);
+        const insight = await generateAiInsightsWithSandbox(newItem);
         (db.data as any).ai_insights.push(insight);
         newItem.risk_score = insight.insight_data.risk_score;
         newItem.ai_underwriting_flags = insight.insight_data.flags;
@@ -399,7 +433,7 @@ app.patch('/api/profiles/:tenantId', requireAuth, async (req, res) => {
 
       // AI Underwriting Hook for Customer Updates
       if (table === 'customers') {
-        const insight = generateAiInsights(updatedItem);
+        const insight = await generateAiInsightsWithSandbox(updatedItem);
         // Find and update or add new insight
         const insightIndex = db.data.ai_insights.findIndex(i => i.entity_id === updatedItem.id && i.insight_type === 'customer_risk');
         if (insightIndex > -1) {
