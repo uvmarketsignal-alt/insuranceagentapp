@@ -9,6 +9,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { NotificationPanel } from './components/NotificationPanel';
 import { InstallButton } from './components/InstallButton';
 import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Lazy load all pages
 const OwnerDashboard    = lazy(() => import('./pages/OwnerDashboard'));
@@ -34,8 +35,8 @@ function PageLoader() {
   return (
     <div className="flex items-center justify-center h-64">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 text-sm">Loading...</p>
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-500 text-sm font-medium">Preparing your workspace...</p>
       </div>
     </div>
   );
@@ -66,7 +67,6 @@ export function App() {
 
   // Service Worker + PWA + Keyboard shortcuts
   useEffect(() => {
-
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       useStore.getState().setInstallPrompt(e);
@@ -140,9 +140,21 @@ export function App() {
     }
   };
 
+  const pageVariants = {
+    initial: { opacity: 0, y: 10, scale: 0.99 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -10, scale: 0.99 },
+  };
+
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen selection:bg-indigo-100 relative overflow-hidden">
+         {/* Aurora Background Effect */}
+         <div className="absolute inset-0 -z-10 bg-slate-50">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200/40 rounded-full blur-[120px] animate-aurora" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-200/40 rounded-full blur-[120px] animate-aurora" style={{ animationDelay: '-5s' }} />
+        </div>
+        
         <Toaster position="top-right" />
         <Login onLogin={handleLogin} />
         {showCommandPalette && (
@@ -153,15 +165,35 @@ export function App() {
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-white to-zinc-100'}`}>
+    <div className={`min-h-screen selection:bg-indigo-100 ${darkMode ? 'dark bg-slate-900' : 'bg-slate-50'} relative overflow-hidden transition-colors duration-500`}>
+      {/* Aurora Background Effect */}
+      {!darkMode && (
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100/40 rounded-full blur-[120px] animate-aurora" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-100/40 rounded-full blur-[120px] animate-aurora" style={{ animationDelay: '-5s' }} />
+        </div>
+      )}
+
       <Layout
         onNavigate={navigate}
         currentPage={currentPage}
         onNotificationsToggle={() => setShowNotifications(p => !p)}
       >
-        <Suspense fallback={<PageLoader />}>
-          {renderPage()}
-        </Suspense>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.3, ease: 'circOut' }}
+            className="w-full"
+          >
+            <Suspense fallback={<PageLoader />}>
+              {renderPage()}
+            </Suspense>
+          </motion.div>
+        </AnimatePresence>
       </Layout>
 
       <Toaster position="top-right" />

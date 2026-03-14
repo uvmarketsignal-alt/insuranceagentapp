@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, X, MessageSquare, Eye, Download, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
 import { format } from 'date-fns';
+import { cn } from '../utils/cn';
 
 export default function ApprovalsPage() {
   const { customers, approveCustomer, rejectCustomer, requestChanges, tenant } = useStore();
@@ -72,6 +73,15 @@ export default function ApprovalsPage() {
                       <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
                         Pending
                       </span>
+                      {customer.risk_score !== undefined && (
+                        <span className={cn(
+                          "px-2 py-1 text-xs font-medium rounded-full",
+                          customer.risk_score > 70 ? "bg-red-100 text-red-800" :
+                          customer.risk_score > 40 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                        )}>
+                          {customer.risk_score}% Risk
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600 mt-1">
                       {customer.phone} • {customer.email || 'No email'}
