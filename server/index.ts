@@ -71,7 +71,17 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(__dirname, 'db.json');
+// Use /tmp for db in Vercel environment as the usual paths are read-only
+const isVercel = process.env.VERCEL === '1';
+const DB_PATH = isVercel ? join('/tmp', 'db.json') : join(__dirname, 'db.json');
+
+// Copy initial DB to /tmp if on Vercel
+if (isVercel && !fs.existsSync(DB_PATH)) {
+  const sourcePath = join(__dirname, 'db.json');
+  if (fs.existsSync(sourcePath)) {
+    fs.copyFileSync(sourcePath, DB_PATH);
+  }
+}
 
 interface DbData {
   tenants: any[];
