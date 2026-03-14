@@ -25,6 +25,11 @@ jobs:
     - name: Run lint
       run: npm run --if-present lint
 
+    - name: 'notify vercel'
+      uses: 'vercel/repository-dispatch/actions/status@v1'
+      with:
+        name: Vercel - insuranceapp: lint.
+
     - name: Type check
       run: npx tsc --noEmit
 
