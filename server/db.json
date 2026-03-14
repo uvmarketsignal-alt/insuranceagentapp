@@ -2,8 +2,8 @@
   "tenants": [
     {
       "id": "tenant-1",
-      "email": "uv@uvinsurance.in",
-      "password": "uv_hash_1122980446",
+      "email": "uvmarketsignal@gmail.com",
+      "password": "uv_hash_2014912181",
       "name": "UV Insurance Agency",
       "role": "owner",
       "created_at": "2026-01-01T00:00:00.000Z"
@@ -11,18 +11,18 @@
     {
       "id": "employee-1",
       "parent_id": "tenant-1",
-      "email": "raghul@uvinsurance.in",
-      "password": "uv_hash_1741415421",
-      "name": "Raghul",
+      "email": "vasusiva78@gmail.com",
+      "password": "uv_hash_95210218",
+      "name": "Vasu",
       "role": "employee",
       "created_at": "2026-01-02T00:00:00.000Z"
     },
     {
       "id": "employee-2",
       "parent_id": "tenant-1",
-      "email": "vasu@uvinsurance.in",
-      "password": "uv_hash_1323598985",
-      "name": "Vasu",
+      "email": "employee2@uvinsurance.in",
+      "password": "uv_hash_95210218",
+      "name": "Raghul",
       "role": "employee",
       "created_at": "2026-01-03T00:00:00.000Z"
     }
@@ -38,7 +38,7 @@
     },
     {
       "tenant_id": "employee-1",
-      "full_name": "Raghul Employee",
+      "full_name": "Vasu Employee",
       "phone": "1-527-562-3784 x64882",
       "avatar_url": "https://api.dicebear.com/7.x/avataaars/svg?seed=employee-1",
       "created_at": "2026-03-09T12:58:10.334Z",
@@ -46,7 +46,7 @@
     },
     {
       "tenant_id": "employee-2",
-      "full_name": "Vasu Employee",
+      "full_name": "Raghul Employee",
       "phone": "830.636.3705 x0453",
       "avatar_url": "https://api.dicebear.com/7.x/avataaars/svg?seed=employee-2",
       "created_at": "2026-03-09T12:58:10.334Z",
@@ -1013,6 +1013,24 @@
       "address": "4121 Station Street, Ewellfort, 02583-0343",
       "status": "active",
       "assigned_to": "tenant-1"
+    },
+    {
+      "id": "297e951d-3132-49db-abb1-50388eb86ebe",
+      "created_at": "2026-03-14T10:55:47.007Z",
+      "updated_at": "2026-03-14T10:55:47.007Z",
+      "tenant_id": "employee-2",
+      "full_name": "vasu devan",
+      "phone": "7397146844",
+      "email": "vasusiva78@gmail.com",
+      "date_of_birth": "1996-01-30T00:00:00.000Z",
+      "gender": "male",
+      "occupation": "famer",
+      "annual_income": 600000,
+      "address": "127/5 RAJESHWARI NAGAR DASANAKENPATTI SALEM",
+      "status": "pending",
+      "assigned_to": "employee-2",
+      "risk_score": 50,
+      "ai_underwriting_flags": []
     }
   ],
   "policies": [
@@ -2915,6 +2933,39 @@
         "payment_mode": "online",
         "grace_period": "30"
       }
+    },
+    {
+      "id": "8aae3fee-8643-4d07-b4dc-809b4ac86d5e",
+      "created_at": "2026-03-14T10:55:48.165Z",
+      "updated_at": "2026-03-14T10:59:22.013Z",
+      "tenant_id": "employee-2",
+      "customer_id": "297e951d-3132-49db-abb1-50388eb86ebe",
+      "policy_type": "health",
+      "policy_number": "POL-1773485597776",
+      "insurer": "ERGO",
+      "sum_assured": 9999999,
+      "premium_amount": 1500,
+      "premium_frequency": "monthly",
+      "start_date": "2025-03-14T00:00:00.000Z",
+      "end_date": "2026-03-14T00:00:00.000Z",
+      "status": "expired",
+      "metadata": {
+        "aadhaar_number": "242528775721",
+        "pan_number": "BHPOT7818R",
+        "motor_subtype": "comprehensive",
+        "policy_details": {
+          "height_cm": "165",
+          "weight_kg": "73",
+          "blood_group": "B+",
+          "smoker": "no",
+          "pre_existing_conditions": "NONE",
+          "family_history": "NONE",
+          "plan_type": "individual",
+          "member_count": "4"
+        },
+        "payment_mode": "online",
+        "grace_period": "30"
+      }
     }
   ],
   "claims": [
@@ -3697,6 +3748,27 @@
       "type": "error",
       "priority": "low",
       "is_read": false
+    },
+    {
+      "id": "bddd4a8a-b1a9-4c79-9570-26e4315f79e3",
+      "created_at": "2026-03-14T10:55:47.632Z",
+      "updated_at": "2026-03-14T10:55:47.632Z",
+      "tenant_id": "tenant_001",
+      "title": "🔔 New Customer Awaiting Approval",
+      "message": "Vasu submitted customer \"vasu devan\" for your approval.",
+      "type": "warning",
+      "priority": "high",
+      "action_url": "approvals"
+    },
+    {
+      "id": "50392c91-af9a-4ff3-816a-a5c4b6fb151c",
+      "created_at": "2026-03-14T10:55:48.667Z",
+      "updated_at": "2026-03-14T10:55:48.667Z",
+      "tenant_id": "employee-2",
+      "title": "📋 Application Submitted",
+      "message": "Customer \"vasu devan\" submitted for owner approval.",
+      "type": "success",
+      "priority": "medium"
     }
   ],
   "ai_insights": [
@@ -3987,6 +4059,24 @@
         "Suggest health top-up",
         "Cross-sell health insurance"
       ]
+    },
+    {
+      "id": "b3dc0b9f-81c3-4ee4-b387-ad52c0d656a1",
+      "tenant_id": "employee-2",
+      "insight_type": "customer_risk",
+      "entity_type": "customer",
+      "entity_id": "297e951d-3132-49db-abb1-50388eb86ebe",
+      "confidence_score": 0.92,
+      "insight_data": {
+        "risk_score": 50,
+        "risk_level": "Medium",
+        "flags": []
+      },
+      "actionable_recommendations": [
+        "Standard processing recommended"
+      ],
+      "is_reviewed": false,
+      "created_at": "2026-03-14T10:55:47.008Z"
     }
   ],
   "audit_logs": [
@@ -3995,6 +4085,40 @@
       "created_at": "2026-03-09T15:43:40.898Z",
       "updated_at": "2026-03-09T15:43:40.898Z",
       "tenant_id": "employee-1",
+      "action": "logout",
+      "entity_type": "auth"
+    },
+    {
+      "id": "11d4948a-0607-4eb2-a38b-64228f59d3cf",
+      "created_at": "2026-03-14T10:55:47.240Z",
+      "updated_at": "2026-03-14T10:55:47.240Z",
+      "tenant_id": "employee-2",
+      "action": "create",
+      "entity_type": "customer",
+      "entity_id": "297e951d-3132-49db-abb1-50388eb86ebe"
+    },
+    {
+      "id": "c44bc4af-a199-4adf-b328-7160c3e9c949",
+      "created_at": "2026-03-14T10:55:48.254Z",
+      "updated_at": "2026-03-14T10:55:48.254Z",
+      "tenant_id": "employee-2",
+      "action": "create",
+      "entity_type": "policy",
+      "entity_id": "8aae3fee-8643-4d07-b4dc-809b4ac86d5e"
+    },
+    {
+      "id": "ca85fc59-6b6d-481f-b33d-7981237ecb85",
+      "created_at": "2026-03-14T10:55:56.044Z",
+      "updated_at": "2026-03-14T10:55:56.044Z",
+      "tenant_id": "employee-2",
+      "action": "logout",
+      "entity_type": "auth"
+    },
+    {
+      "id": "127a6bc4-eace-4f01-9a47-4fbeb1709722",
+      "created_at": "2026-03-14T11:02:34.371Z",
+      "updated_at": "2026-03-14T11:02:34.371Z",
+      "tenant_id": "tenant-1",
       "action": "logout",
       "entity_type": "auth"
     }

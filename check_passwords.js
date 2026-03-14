@@ -11,5 +11,4 @@ const hashPassword = (plain) => {
   return `uv_hash_${Math.abs(hash)}`;
 };
 
-console.log('admin123:', hashPassword('admin123'));
-console.log('password123:', hashPassword('password123'));
+
