@@ -16,7 +16,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'UV_INS_2025_JWT_SECRET_SUPER_SECUR
 const verifyPassword = (plain: string, hashed: string): boolean => {
   if (!plain || !hashed) return false;
   if (!hashed.startsWith('uv_hash_')) return plain === hashed;
-  const SALT = 'UV_INS_2025_SECURE_SALT';
+  const SALT = process.env.AUTH_SALT || 'UV_INS_2025_SECURE_SALT';
   const salted = SALT + plain + SALT;
   let hash = 5381;
   for (let i = 0; i < salted.length; i++) {
