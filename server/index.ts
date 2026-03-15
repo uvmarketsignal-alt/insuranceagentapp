@@ -19,6 +19,10 @@ dotenv.config();
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'UV_INS_2025_JWT_SECRET_SUPER_SECURE_KEY';
 
+if (!process.env.DATABASE_URL) {
+  console.warn('WARNING: DATABASE_URL is not set. Database operations will fail.');
+}
+
 // --- Audit Log Helper ---
 const createAuditLog = async (tenant_id: string, action: string, entity_type: string, entity_id?: string, old_values?: any, new_values?: any, req?: express.Request) => {
   try {
@@ -141,22 +145,31 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   
-  const tenant = await prisma.tenants.findUnique({ where: { email: email.toLowerCase() } });
-  if (!tenant || !verifyPassword(password, tenant.password)) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+  try {
+    const tenant = await prisma.tenants.findUnique({ where: { email: email.toLowerCase() } });
+    if (!tenant || !verifyPassword(password, tenant.password)) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    
+    const token = jwt.sign({ id: tenant.id, role: tenant.role || 'owner' }, JWT_SECRET, { expiresIn: '1d' });
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+    
+    const profile = await prisma.profiles.findFirst({ where: { tenant_id: tenant.id } });
+    await createAuditLog(tenant.id, 'login', 'tenant', tenant.id, null, null, req);
+    res.json({ tenant, profile });
+  } catch (err) {
+    console.error(`[Auth] Database error during login for ${email}:`, err);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: 'Database connection failed. Please check your DATABASE_URL.',
+      details: process.env.NODE_ENV === 'development' ? String(err) : undefined
+    });
   }
-  
-  const token = jwt.sign({ id: tenant.id, role: tenant.role || 'owner' }, JWT_SECRET, { expiresIn: '1d' });
-  res.cookie('auth_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000
-  });
-  
-  const profile = await prisma.profiles.findFirst({ where: { tenant_id: tenant.id } });
-  await createAuditLog(tenant.id, 'login', 'tenant', tenant.id, null, null, req);
-  res.json({ tenant, profile });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -228,9 +241,9 @@ app.patch('/api/customers/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
-  const before = await prisma.customers.findUnique({ where: { id } });
+  const before = await prisma.customers.findUnique({ where: { id: String(id) } });
   const customer = await prisma.customers.update({
-    where: { id },
+    where: { id: String(id) },
     data: {
       ...updates,
       annual_income: updates.annual_income ? parseFloat(String(updates.annual_income)) : undefined,
@@ -238,7 +251,7 @@ app.patch('/api/customers/:id', requireAuth, async (req, res) => {
     }
   });
 
-  await createAuditLog(user.agency_id, 'update', 'customer', id, before, customer, req);
+  await createAuditLog(user.agency_id, 'update', 'customer', String(id), before, customer, req);
   res.json(customer);
 });
 
@@ -246,10 +259,10 @@ app.delete('/api/customers/:id', requireAuth, async (req, res) => {
   const user = (req as any).user;
   const { id } = req.params;
   
-  const before = await prisma.customers.findUnique({ where: { id } });
-  await prisma.customers.delete({ where: { id } });
+  const before = await prisma.customers.findUnique({ where: { id: String(id) } });
+  await prisma.customers.delete({ where: { id: String(id) } });
   
-  await createAuditLog(user.agency_id, 'delete', 'customer', id, before, null, req);
+  await createAuditLog(user.agency_id, 'delete', 'customer', String(id), before, null, req);
   res.json({ success: true });
 });
 
@@ -388,34 +401,52 @@ tables.forEach(table => {
   app.patch(`/api/${table}/:id`, requireAuth, async (req, res) => {
     const user = (req as any).user;
     const { id } = req.params;
-    const before = await (prisma as any)[table].findFirst({ where: { id, tenant_id: user.agency_id } });
+    const before = await (prisma as any)[table].findFirst({ where: { id: String(id), tenant_id: user.agency_id } });
     if (!before) return res.status(404).json({ error: 'Item not found' });
     
     const item = await (prisma as any)[table].update({
-      where: { id },
+      where: { id: String(id) },
       data: { ...req.body }
     });
-    await createAuditLog(user.agency_id, 'update', table, id, before, item, req);
+    await createAuditLog(user.agency_id, 'update', table, String(id), before, item, req);
     res.json(item);
   });
 
   app.delete(`/api/${table}/:id`, requireAuth, async (req, res) => {
     const user = (req as any).user;
     const { id } = req.params;
-    const before = await (prisma as any)[table].findFirst({ where: { id, tenant_id: user.agency_id } });
+    const before = await (prisma as any)[table].findFirst({ where: { id: String(id), tenant_id: user.agency_id } });
     if (!before) return res.status(404).json({ error: 'Item not found' });
     
-    await (prisma as any)[table].delete({ where: { id } });
-    await createAuditLog(user.agency_id, 'delete', table, id, before, null, req);
+    await (prisma as any)[table].delete({ where: { id: String(id) } });
+    await createAuditLog(user.agency_id, 'delete', table, String(id), before, null, req);
     res.json({ success: true });
   });
 });
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', db: 'prisma/neon' }));
+app.get('/api/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ 
+      status: 'ok', 
+      db: 'connected', 
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV
+    });
+  } catch (err) {
+    console.error('[Health] DB Health check failed:', err);
+    res.status(503).json({ 
+      status: 'error', 
+      db: 'disconnected', 
+      error: String(err) 
+    });
+  }
+});
 
-if (fs.existsSync(join(process.cwd(), 'dist'))) {
+// Static assets for local development
+if (process.env.NODE_ENV !== 'production' && fs.existsSync(join(process.cwd(), 'dist'))) {
   app.use(express.static(join(process.cwd(), 'dist')));
-  app.get(/^\/(.*)/, (_req, res) => {
+  app.get(/^\/(?!api).*/, (_req, res) => {
     res.sendFile(join(process.cwd(), 'dist', 'index.html'));
   });
 }

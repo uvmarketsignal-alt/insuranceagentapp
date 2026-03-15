@@ -9,19 +9,48 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <!-- Google Search Console -->
-    <meta name="google-site-verification" content="%VITE_GSC_ID%" />
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','%VITE_GTM_ID%');</script>
-    <!-- End Google Tag Manager -->
+    <!-- Google Search Console and Google Tag Manager -->
+    <script>
+      (function() {
+        const gtmId = "%VITE_GTM_ID%";
+        const gaId = "%VITE_GA_ID%";
+        const gscId = "%VITE_GSC_ID%";
+
+        // Site Verification
+        if (gscId && gscId.indexOf('%VITE_') === -1) {
+          const meta = document.createElement('meta');
+          meta.name = "google-site-verification";
+          meta.content = gscId;
+          document.head.appendChild(meta);
+        }
+
+        // GTM
+        if (gtmId && gtmId.indexOf('%VITE_') === -1) {
+          (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+          j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+          'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+          })(window,document,'script','dataLayer',gtmId);
+        }
+        // GA (gtag.js)
+        if (gaId && gaId.indexOf('%VITE_') === -1) {
+          const script = document.createElement('script');
+          script.async = true;
+          script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+          document.head.appendChild(script);
+
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
+        }
+      })();
+    </script>
+    <!-- End Google Search Console and Google Tag Manager -->
   </head>
   <body>
     <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%VITE_GTM_ID%"
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NXQ9TQQX"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
     <div id="root"></div>
