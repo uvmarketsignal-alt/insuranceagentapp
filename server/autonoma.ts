@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * AutonomaService integrates with the Autonoma AI platform
@@ -7,7 +6,6 @@ import axios from 'axios';
 export class AutonomaService {
   private clientId: string;
   private secretId: string;
-  private baseUrl: string = 'https://api.autonoma.tech/v1'; // Standard assumed base URL
 
   constructor() {
     this.clientId = process.env.AUTONOMA_CLIENT_ID || '';
@@ -18,7 +16,7 @@ export class AutonomaService {
    * Generates AI Insights for a customer or policy.
    * This bridges the new environment secrets with the ai_insights model.
    */
-  async generateInsight(entityType: 'customer' | 'policy', entityId: string, context: any) {
+  async generateInsight(entityType: 'customer' | 'policy', entityId: string, _context: any) {
     if (!this.clientId || !this.secretId) {
       console.warn('⚠️ Autonoma credentials missing. Skipping AI insight generation.');
       return null;

@@ -3,13 +3,10 @@ import cors from 'cors';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import crypto from 'crypto';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
-import { runInSandbox } from './sandbox.js';
-import { browserService } from './browser.js';
 import multer from 'multer';
 import path from 'path';
 import { put } from '@vercel/blob';
@@ -57,18 +54,6 @@ const verifyPassword = (plain: string, hashed: string): boolean => {
   return `uv_hash_${Math.abs(hash)}` === hashed;
 };
 
-const hashPassword = (plain: string): string => {
-  if (!plain) return '';
-  const SALT = process.env.AUTH_SALT || 'UV_INS_2025_SECURE_SALT';
-  const salted = SALT + plain + SALT;
-  let hash = 5381;
-  for (let i = 0; i < salted.length; i++) {
-    hash = ((hash << 5) + hash) ^ salted.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return `uv_hash_${Math.abs(hash)}`;
-};
-
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const token = req.cookies.auth_token;
   if (!token) {
@@ -100,7 +85,6 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
   }
 };
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors({
@@ -121,25 +105,6 @@ const upload = multer({
 const PORT = process.env.PORT || 3001;
 
 // --- AI Underwriting Engine ---
-const calculateRiskScore = (customer: any) => {
-  let score = 50;
-  const highRiskJobs = ['construction', 'mining', 'driver', 'pilot'];
-  const lowRiskJobs = ['it', 'software', 'banking', 'teacher', 'doctor'];
-
-  if (customer.occupation) {
-    const occ = customer.occupation.toLowerCase();
-    if (highRiskJobs.some(j => occ.includes(j))) score += 15;
-    if (lowRiskJobs.some(j => occ.includes(j))) score -= 10;
-  }
-
-  if (customer.annual_income) {
-    const income = Number(customer.annual_income);
-    if (income < 300000) score += 10;
-    if (income > 1500000) score -= 10;
-  }
-
-  return Math.max(0, Math.min(100, score));
-};
 
 // --- Auth Endpoints ---
 app.post('/api/auth/login', async (req, res) => {
@@ -173,7 +138,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', (_req, res) => {
   res.clearCookie('auth_token');
   res.json({ success: true });
 });

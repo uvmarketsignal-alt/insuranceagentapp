@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { dbService } from './lib/db-service';
 
 import toast from 'react-hot-toast';
-import { format, differenceInDays } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import type {
   Tenant, Profile, Customer, Document, AuditLog, Notification,
   CustomerPolicy, Claim, Commission, Lead, Renewal, PremiumPayment,
