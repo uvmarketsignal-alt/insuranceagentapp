@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
