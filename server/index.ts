@@ -13,6 +13,7 @@ import { browserService } from './browser.js';
 import multer from 'multer';
 import path from 'path';
 import { put } from '@vercel/blob';
+import { autonomaService } from './autonoma.js';
 
 dotenv.config();
 
@@ -233,6 +234,27 @@ app.post('/api/customers', requireAuth, async (req, res) => {
   });
 
   await createAuditLog(user.agency_id, 'create', 'customer', customer.id, null, customer, req);
+  
+  // --- Autonoma AI Insight Generation ---
+  try {
+    const insight = await autonomaService.generateInsight('customer', customer.id, customer);
+    if (insight) {
+      await prisma.ai_insights.create({
+        data: {
+          tenant_id: user.agency_id,
+          insight_type: insight.insight_type,
+          entity_type: 'customer',
+          entity_id: customer.id,
+          confidence_score: insight.confidence_score,
+          insight_data: insight.insight_data,
+          actionable_recommendations: insight.recommendations
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to generate Autonoma insight for new customer:', err);
+  }
+
   res.status(201).json(customer);
 });
 
@@ -299,6 +321,27 @@ app.post('/api/policies', requireAuth, async (req, res) => {
     }
   });
   await createAuditLog(user.agency_id, 'create', 'policy', policy.id, null, policy, req);
+  
+  // --- Autonoma AI Insight Generation for Policy ---
+  try {
+    const insight = await autonomaService.generateInsight('policy', policy.id, policy);
+    if (insight) {
+      await prisma.ai_insights.create({
+        data: {
+          tenant_id: user.agency_id,
+          insight_type: insight.insight_type,
+          entity_type: 'policy',
+          entity_id: policy.id,
+          confidence_score: insight.confidence_score,
+          insight_data: insight.insight_data,
+          actionable_recommendations: insight.recommendations
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to generate Autonoma insight for new policy:', err);
+  }
+
   res.status(201).json(policy);
 });
 
