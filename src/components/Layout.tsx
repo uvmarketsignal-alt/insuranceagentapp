@@ -46,7 +46,7 @@ interface NavItem {
 
 export default function Layout({ children, onNavigate, currentPage, onNotificationsToggle }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { tenant, profile, notifications } = useStore();
+  const { appName, tenant, profile, notifications } = useStore();
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -120,8 +120,10 @@ export default function Layout({ children, onNavigate, currentPage, onNotificati
               <Logo size="small" />
             </div>
             <div>
-              <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-                ANDRUIA <span className="block text-xs font-bold text-indigo-600 dark:text-indigo-400">INSURANCE</span>
+              <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight uppercase">
+                {appName.split(' ')[0]} <span className="block text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  {appName.split(' ').slice(1).join(' ')}
+                </span>
               </h2>
             </div>
           </div>

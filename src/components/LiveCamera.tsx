@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, RefreshCw, X, Check, CameraOff, AlertCircle, Info } from 'lucide-react';
+import { Camera, RefreshCcw, X, Check, CameraOff, AlertCircle, Info } from 'lucide-react';
 
 interface LiveCameraProps {
   onCapture: (file: File) => void;
@@ -249,7 +249,7 @@ export function LiveCamera({ onCapture, onClose, documentType }: LiveCameraProps
                 className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Switch camera"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCcw className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -261,7 +261,7 @@ export function LiveCamera({ onCapture, onClose, documentType }: LiveCameraProps
                   onClick={retakeImage}
                   className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCcw className="w-4 h-4" />
                   Retake
                 </button>
                 <button

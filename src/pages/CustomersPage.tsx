@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Plus, Edit, Trash2, X, Save,
   User, Phone, Mail, MapPin, Briefcase, DollarSign,
-  CheckCircle, Clock, XCircle, AlertCircle, Download,
+  CheckCircle2, Clock, XCircle, AlertCircle, Download,
   ChevronDown, ChevronUp, Calendar,
 } from 'lucide-react';
 import { useStore } from '../store';
@@ -13,7 +13,7 @@ import type { Page, Customer } from '../types';
 interface Props { onNavigate: (page: Page) => void; }
 
 const STATUS_CONFIG = {
-  approved:          { label: 'Approved',           color: 'bg-green-100 text-green-700 border-green-200',  icon: CheckCircle },
+  approved:          { label: 'Approved',           color: 'bg-green-100 text-green-700 border-green-200',  icon: CheckCircle2 },
   pending:           { label: 'Pending',             color: 'bg-amber-100 text-amber-700 border-amber-200',  icon: Clock       },
   rejected:          { label: 'Rejected',            color: 'bg-red-100 text-red-700 border-red-200',        icon: XCircle     },
   changes_requested: { label: 'Changes Requested',   color: 'bg-blue-100 text-blue-700 border-blue-200',     icon: AlertCircle },

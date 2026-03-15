@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Plus, Search, Filter, ChevronDown, ChevronUp, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Shield, Plus, Search, Filter, ChevronDown, ChevronUp, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useStore } from '../store';
 import { format } from 'date-fns';
 
@@ -67,7 +67,7 @@ export default function ClaimsPage() {
         {[
           { label: 'Total Claims', value: stats.total, icon: FileText, color: 'blue' },
           { label: 'Filed', value: stats.filed, icon: Clock, color: 'yellow' },
-          { label: 'Approved', value: stats.approved, icon: CheckCircle, color: 'green' },
+          { label: 'Approved', value: stats.approved, icon: CheckCircle2, color: 'green' },
           { label: 'Settled', value: stats.settled, icon: XCircle, color: 'purple' },
         ].map(({ label, value, icon: Icon, color }) => (
           <motion.div key={label} whileHover={{ scale: 1.02 }} className="bg-white/80 backdrop-blur rounded-2xl p-4 shadow border border-white/20">

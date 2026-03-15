@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, BookOpen, FileText, ShieldCheck, HelpCircle, Car, Heart,
   Home, Plane, ChevronDown, ChevronUp, Star, Eye, Clock, Tag,
-  Activity, Users, AlertCircle, CheckCircle, Info,
+  Activity, Users, AlertCircle, CheckCircle2, Info,
   Zap, Shield, Phone, MessageSquare, X,
   ThumbsUp, ThumbsDown, Share2, Printer, Download, PlusCircle
 } from 'lucide-react';
@@ -1171,7 +1171,7 @@ export default function KnowledgeBasePage() {
               <ul className="space-y-1">
                 {p.docs.map((d) => (
                   <li key={d} className="text-xs text-white/80 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" /> {d}
+                    <CheckCircle2 className="w-3 h-3 text-green-300 flex-shrink-0" /> {d}
                   </li>
                 ))}
               </ul>

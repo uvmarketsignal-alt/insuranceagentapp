@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, AlertCircle, TrendingUp, Plus, Camera,
-  Clock, DollarSign, ArrowRight, CheckCircle, Star,
+  Clock, DollarSign, ArrowRight, CheckCircle2, Star,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { format } from 'date-fns';
@@ -19,7 +19,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
   });
 
   useEffect(() => {
-    if (tenant) loadInitialData(tenant.id);
+    if (tenant) loadInitialData();
   }, [tenant?.id]);
 
   useEffect(() => {
@@ -257,7 +257,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
           </div>
           <button onClick={() => onNavigate('customers')}
             className="px-4 py-2 bg-amber-600 text-white rounded-xl text-sm font-medium hover:bg-amber-700 transition-colors flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" /> View Status
+            <CheckCircle2 className="w-4 h-4" /> View Status
           </button>
         </motion.div>
       )}

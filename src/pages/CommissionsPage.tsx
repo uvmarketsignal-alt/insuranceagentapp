@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import { DollarSign, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
 import { useStore } from '../store';
 import { format } from 'date-fns';
 
@@ -36,7 +36,7 @@ export default function CommissionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { label: 'Total Earned', value: totalEarned, icon: TrendingUp, color: 'blue' },
-          { label: 'Total Paid', value: totalPaid, icon: CheckCircle, color: 'green' },
+          { label: 'Total Paid', value: totalPaid, icon: CheckCircle2, color: 'green' },
           { label: 'Pending', value: totalPending, icon: Clock, color: 'orange' },
         ].map(({ label, value, icon: Icon, color }) => (
           <motion.div key={label} whileHover={{ scale: 1.02 }} className="bg-white/80 backdrop-blur rounded-2xl p-5 shadow border border-white/20">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle, XCircle, AlertCircle, Shield, Wifi, WifiOff } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, XCircle, AlertCircle, Shield, Wifi, WifiOff } from 'lucide-react';
 import { useStore } from '../store';
 import { Logo } from './Logo';
 import { InstallButton } from './InstallButton';
@@ -507,7 +507,7 @@ function PasswordResetFlow({ onBack }: { onBack: () => void }) {
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
               i + 1 < step ? 'bg-green-500 text-white' : i + 1 === step ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'
             }`}>
-              {i + 1 < step ? <CheckCircle className="w-4 h-4" /> : i + 1}
+              {i + 1 < step ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
             </div>
             {i < steps.length - 1 && (
               <div className={`flex-1 h-0.5 mx-1 transition-all ${i + 1 < step ? 'bg-green-400' : 'bg-slate-200'}`} />
@@ -575,7 +575,7 @@ function PasswordResetFlow({ onBack }: { onBack: () => void }) {
         <div className="text-center space-y-4">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 20 }}
             className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-500/30">
-            <CheckCircle className="w-8 h-8 text-white" />
+            <CheckCircle2 className="w-8 h-8 text-white" />
           </motion.div>
           <p className="text-slate-600 text-sm">Your password has been reset. You can now sign in with your new password.</p>
           <button onClick={onBack}

@@ -1,9 +1,6 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: 'Inter';
-  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -16,7 +13,9 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900;
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -38,23 +37,63 @@
 
 @layer components {
   .glass-card {
-    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-xl rounded-3xl transition-all duration-300;
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    border-radius: 1.5rem;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
   }
 
   .glass-card-dark {
-    @apply bg-slate-900/40 backdrop-blur-xl border border-white/10 shadow-2xl rounded-3xl transition-all duration-300;
+    background-color: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+    border-radius: 1.5rem;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
   }
 
   .premium-gradient {
-    @apply bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500;
+    background-image: linear-gradient(to top right, #4f46e5, #9333ea, #ec4899);
   }
 
   .btn-premium {
-    @apply bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white px-6 py-2.5 rounded-2xl font-semibold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all;
+    background-image: linear-gradient(to top right, #4f46e5, #9333ea, #ec4899);
+    color: white;
+    padding: 0.625rem 1.5rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
   }
-  
+  .btn-premium:hover {
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.5);
+    transform: scale(1.02);
+  }
+  .btn-premium:active {
+    transform: scale(0.98);
+  }
+
   .input-premium {
-    @apply bg-white/50 border border-slate-200 rounded-2xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all;
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.625rem 1rem;
+    outline: none;
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+  .input-premium:focus {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: #6366f1;
   }
 }
 
@@ -73,11 +112,23 @@
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-15px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-15px);
+  }
 }
 
 @keyframes aurora {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

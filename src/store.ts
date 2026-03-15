@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { dbService } from './lib/db-service';
 
 import toast from 'react-hot-toast';
+import { format, differenceInDays } from 'date-fns';
 import type {
   Tenant, Profile, Customer, Document, AuditLog, Notification,
   CustomerPolicy, Claim, Commission, Lead, Renewal, PremiumPayment,
@@ -84,6 +85,7 @@ interface AppState {
   updateLeadStage: (leadId: string, status: Lead['status']) => Promise<void>;
   addRenewal: (data: Omit<Renewal, 'id' | 'created_at' | 'notified' | 'processed'>) => Promise<Renewal>;
   processRenewal: (renewalId: string) => Promise<void>;
+  sendRenewalReminder: (renewalId: string) => Promise<void>;
   addPremiumPayment: (data: Omit<PremiumPayment, 'id' | 'created_at'>) => Promise<PremiumPayment>;
   addFamilyMember: (data: Omit<FamilyMember, 'id' | 'created_at'>) => Promise<FamilyMember>;
   addEndorsement: (data: Omit<Endorsement, 'id' | 'created_at' | 'status'>) => Promise<Endorsement>;
@@ -102,7 +104,7 @@ interface AppState {
   setReAuthRequired: (required: boolean) => void;
   incrementReAuthAttempts: () => void;
   resetReAuthAttempts: () => void;
-  loadInitialData: (tenantId: string) => Promise<void>;
+  loadInitialData: () => Promise<void>;
   refreshData: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setNewCustomerStep: (step: number, data: any) => void;
@@ -113,6 +115,7 @@ interface AppState {
   addSecurityEvent: (data: Omit<SecurityEvent, 'id' | 'created_at' | 'resolved'>) => Promise<SecurityEvent>;
   recordPerformanceMetric: (data: Omit<PerformanceMetric, 'id' | 'created_at'>) => Promise<PerformanceMetric>;
   updateProfile: (tenantId: string, updates: Partial<Profile>) => Promise<void>;
+  generateRenewals: () => Promise<void>;
 }
 
 export const useStore = create<AppState>()(
@@ -128,7 +131,7 @@ export const useStore = create<AppState>()(
       reAuthRequired: false,
       reAuthAttempts: 0,
       isInitialLoading: false,
-      appName: 'UV Insurance Agency',
+      appName: 'UV Insurance App',
       appLogo: null,
       customers: [],
       documents: [],
@@ -179,7 +182,7 @@ export const useStore = create<AppState>()(
             const authResponse = await dbService.login(normalizedEmail, normalizedPassword);
             if (authResponse && authResponse.tenant) {
               set({ tenant: authResponse.tenant, profile: authResponse.profile, isAuthenticated: true, sessionStart: new Date() });
-              get().loadInitialData(authResponse.tenant.id).catch(console.error);
+              get().loadInitialData().catch(console.error);
               return true;
             }
           } catch (e) {
@@ -307,7 +310,7 @@ export const useStore = create<AppState>()(
       approveCustomer: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const updated = await dbService.updateCustomerStatus(customerId, 'approved', tenant.id);
+        const updated = await dbService.updateCustomer(customerId, { status: 'approved' });
         set((state) => ({
           customers: state.customers.map((c) =>
             c.id === customerId ? updated : c
@@ -322,7 +325,7 @@ export const useStore = create<AppState>()(
       rejectCustomer: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const updated = await dbService.updateCustomerStatus(customerId, 'rejected', tenant.id);
+        const updated = await dbService.updateCustomer(customerId, { status: 'rejected' });
         set((state) => ({
           customers: state.customers.map((c) =>
             c.id === customerId ? updated : c
@@ -337,7 +340,7 @@ export const useStore = create<AppState>()(
       requestChanges: async (customerId, notes) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const updated = await dbService.updateCustomerStatus(customerId, 'changes_requested', tenant.id, notes);
+        const updated = await dbService.updateCustomer(customerId, { status: 'changes_requested' });
         set((state) => ({
           customers: state.customers.map((c) =>
             c.id === customerId ? updated : c
@@ -423,15 +426,21 @@ export const useStore = create<AppState>()(
       },
 
       uploadFile: async (file) => {
-        return dbService.uploadFile(file);
+        const response = await dbService.uploadFile(file);
+        return {
+          url: response.file_url,
+          filename: response.file_name,
+          size: response.file_size,
+          type: file.type || 'application/octet-stream',
+        };
       },
 
       // ── POLICIES ─────────────────────────────────────────────────────────
-      addPolicy: async (data) => {
+      addPolicy: async (data: any) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const policy = await dbService.createPolicy({ ...data, tenant_id: tenant.id });
-        set((state) => ({ policies: [policy, ...state.policies] }));
+        const policy = await dbService.createPolicy({ ...data, tenant_id: tenant.id } as any);
+        set((state: any) => ({ policies: [policy, ...state.policies] }));
         await get().addAuditLog({ tenant_id: tenant.id, action: 'create', entity_type: 'policy', entity_id: policy.id });
         return policy;
       },
@@ -508,11 +517,11 @@ export const useStore = create<AppState>()(
       },
 
       // ── LEADS ────────────────────────────────────────────────────────────
-      addLead: async (data) => {
+      addLead: async (data: any) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const lead = await dbService.createLead({ ...data, tenant_id: tenant.id });
-        set((state) => ({ leads: [lead, ...state.leads] }));
+        const lead = await dbService.createLead({ ...data, tenant_id: tenant.id } as any);
+        set((state: any) => ({ leads: [lead, ...state.leads] }));
         await get().addAuditLog({ tenant_id: tenant.id, action: 'create', entity_type: 'lead', entity_id: lead.id });
         return lead;
       },
@@ -540,11 +549,11 @@ export const useStore = create<AppState>()(
       },
 
       // ── RENEWALS ─────────────────────────────────────────────────────────
-      addRenewal: async (data) => {
+      addRenewal: async (data: any) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const renewal = await dbService.createRenewal({ ...data, tenant_id: tenant.id });
-        set((state) => ({ renewals: [renewal, ...state.renewals] }));
+        const renewal = await dbService.createRenewal({ ...data, tenant_id: tenant.id } as any);
+        set((state: any) => ({ renewals: [renewal, ...state.renewals] }));
         return renewal;
       },
 
@@ -557,6 +566,24 @@ export const useStore = create<AppState>()(
             r.id === renewalId ? { ...r, processed: true, processed_at: new Date() } : r
           ),
         }));
+      },
+
+      sendRenewalReminder: async (renewalId) => {
+        const { tenant } = get();
+        if (!tenant) throw new Error('Not authenticated');
+        const updated = await dbService.notifyRenewal(renewalId);
+        set((state) => ({
+          renewals: state.renewals.map((r) =>
+            r.id === renewalId ? { ...r, notified: true, notified_at: updated.notified_at } : r
+          ),
+        }));
+        await get().addAuditLog({ 
+          tenant_id: tenant.id, 
+          action: 'send_reminder', 
+          entity_type: 'renewal', 
+          entity_id: renewalId 
+        });
+        toast.success('Renewal reminder sent!');
       },
 
       // ── PREMIUM PAYMENTS ─────────────────────────────────────────────────
@@ -644,11 +671,11 @@ export const useStore = create<AppState>()(
       },
 
       // ── NOTIFICATIONS ────────────────────────────────────────────────────
-      addNotification: async (data) => {
+      addNotification: async (data: any) => {
         const { tenant } = get();
         if (!tenant) throw new Error('Not authenticated');
-        const notification = await dbService.createNotification({ ...data, tenant_id: data.tenant_id || tenant.id });
-        set((state) => ({ notifications: [notification, ...state.notifications] }));
+        const notification = await dbService.createNotification({ ...data, tenant_id: data.tenant_id || tenant.id } as any);
+        set((state: any) => ({ notifications: [notification, ...state.notifications] }));
         return notification;
       },
 
@@ -690,12 +717,10 @@ export const useStore = create<AppState>()(
       clearNewCustomerData: () => set({ newCustomerData: {} }),
 
       // ── DATA LOADING ─────────────────────────────────────────────────────
-      loadInitialData: async (tenantId) => {
+      loadInitialData: async () => {
         set({ isInitialLoading: true });
         const { tenant } = get();
-        const role = tenant?.role;
-        const userId = tenant?.id;
-        const effectiveTenantId = tenant?.parent_id || tenantId; // Employees see agency data
+        if (!tenant) return;
 
         try {
           const [
@@ -704,23 +729,23 @@ export const useStore = create<AppState>()(
             familyMembers, endorsements, messageTemplates, complianceReports,
             knowledgeArticles, employees, aiInsights
           ] = await Promise.all([
-            dbService.getCustomers(effectiveTenantId, role, userId),
-            dbService.getDocuments(effectiveTenantId, role, userId),
-            dbService.getAuditLogs(effectiveTenantId),
-            dbService.getNotifications(effectiveTenantId),
-            dbService.getPolicies(effectiveTenantId, role, userId),
-            dbService.getClaims(effectiveTenantId, role, userId),
-            dbService.getCommissions(effectiveTenantId, role, userId),
-            dbService.getLeads(effectiveTenantId, role, userId),
-            dbService.getRenewals(effectiveTenantId, role, userId),
-            dbService.getPremiumPayments(effectiveTenantId),
-            dbService.getFamilyMembers(effectiveTenantId),
-            dbService.getEndorsements(effectiveTenantId),
-            dbService.getMessageTemplates(effectiveTenantId),
-            dbService.getComplianceReports(effectiveTenantId),
-            dbService.getKnowledgeArticles(effectiveTenantId),
-            dbService.getEmployees(effectiveTenantId),
-            dbService.getAiInsights(effectiveTenantId),
+            dbService.getCustomers(tenant.id),
+            dbService.getDocuments(tenant.id),
+            dbService.getAuditLogs(tenant.id),
+            dbService.getNotifications(tenant.id),
+            dbService.getPolicies(tenant.id),
+            dbService.getClaims(tenant.id),
+            dbService.getCommissions(tenant.id),
+            dbService.getLeads(tenant.id),
+            dbService.getRenewals(tenant.id),
+            dbService.getPremiumPayments(tenant.id),
+            dbService.getFamilyMembers(tenant.id),
+            dbService.getEndorsements(tenant.id),
+            dbService.getMessageTemplates(tenant.id),
+            dbService.getComplianceReports(tenant.id),
+            dbService.getKnowledgeArticles(tenant.id),
+            dbService.getEmployees(tenant.id),
+            dbService.getAiInsights(tenant.id),
           ]);
           set({
             customers, documents, auditLogs, notifications, policies,
@@ -728,6 +753,9 @@ export const useStore = create<AppState>()(
             familyMembers, endorsements, messageTemplates, complianceReports,
             knowledgeArticles, employees, aiInsights,
           });
+
+          // After loading, check for missing renewals
+          await get().generateRenewals();
         } catch (error) {
           console.error('Failed to load initial data:', error);
         } finally {
@@ -735,10 +763,38 @@ export const useStore = create<AppState>()(
         }
       },
 
+      generateRenewals: async () => {
+        const { tenant, policies, renewals } = get();
+        if (!tenant) return;
+
+        const expiringPolicies = policies.filter(p => {
+          if (!p.end_date) return false;
+          const daysToExpiry = differenceInDays(new Date(p.end_date), new Date());
+          return daysToExpiry <= 60 && daysToExpiry > -30; // Within 60 days or recently expired
+        });
+
+        for (const policy of expiringPolicies) {
+          const hasRenewal = renewals.some(r => r.policy_id === policy.id);
+          if (!hasRenewal) {
+            try {
+              const renewal = await dbService.createRenewal({
+                policy_id: policy.id,
+                tenant_id: tenant.id,
+                renewal_date: new Date(policy.end_date!),
+                status: 'pending',
+              } as any);
+              set(state => ({ renewals: [renewal, ...state.renewals] }));
+            } catch (err) {
+              console.error(`Failed to auto-generate renewal for policy ${policy.id}`, err);
+            }
+          }
+        }
+      },
+
       refreshData: async () => {
         const { tenant } = get();
         if (!tenant) return;
-        await get().loadInitialData(tenant.id);
+        await get().loadInitialData();
       },
 
       // ── AI & AUTOMATION ──────────────────────────────────────────────────

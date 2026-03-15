@@ -16,7 +16,6 @@ import type {
   PerformanceMetric
 } from '../types';
 
-
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
   const mergedInit = {
     ...(init || {}),
@@ -26,8 +25,6 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 export class DatabaseService {
-
-
   // Auth operations
   async login(email: string, password: string): Promise<{ tenant: Tenant; profile: Profile | null } | null> {
     const response = await apiFetch('/api/auth/login', {
@@ -81,132 +78,69 @@ export class DatabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Failed to create customer');
     return response.json();
   }
 
-  async getCustomers(tenantId: string, role?: string, assignedTo?: string): Promise<Customer[]> {
-    const response = await apiFetch(`/api/customers?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch customers');
-    return response.json();
-  }
-
-  async exportCustomers(tenantId: string): Promise<void> {
-    window.location.href = `/api/customers/export?tenant_id=${tenantId}`;
-  }
-
-  async getCustomerById(id: string): Promise<Customer | null> {
-    const response = await apiFetch(`/api/customers/${id}`);
-    if (!response.ok) return null;
-    return response.json();
-  }
-
-  async updateCustomerStatus(id: string, status: string, assignedTo?: string, requestChangesNotes?: string): Promise<Customer> {
-    const response = await apiFetch(`/api/customers/${id}`, {
+  async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
+    const response = await apiFetch(`/api/customers/${customerId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, assigned_to: assignedTo, request_changes_notes: requestChangesNotes })
+      body: JSON.stringify(updates)
     });
-    if (!response.ok) throw new Error('Failed to update customer status');
+    if (!response.ok) throw new Error('Failed to update customer');
+    return response.json();
+  }
+
+  async updateCustomerStatus(id: string, status: string): Promise<Customer> {
+    return this.updateCustomer(id, { status } as any);
+  }
+
+  async deleteCustomer(customerId: string): Promise<void> {
+    const response = await apiFetch(`/api/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
+    });
+    if (!response.ok) throw new Error('Failed to delete customer');
+  }
+
+  async getCustomers(tenantId: string): Promise<Customer[]> {
+    const response = await apiFetch(`/api/customers?tenant_id=${tenantId}`);
     return response.json();
   }
 
   // Policy operations
-  async createPolicy(data: Omit<CustomerPolicy, 'id' | 'created_at' | 'updated_at'>): Promise<CustomerPolicy> {
+  async createPolicy(data: Omit<CustomerPolicy, 'id' | 'created_at'>): Promise<CustomerPolicy> {
     const response = await apiFetch('/api/policies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Failed to create policy');
     return response.json();
   }
 
-  async getPolicies(tenantId: string, role?: string, assignedTo?: string, customerId?: string): Promise<CustomerPolicy[]> {
-    const response = await apiFetch(`/api/policies?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}&customer_id=${customerId || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch policies');
-    return response.json();
-  }
-
-  // Document operations
-  async createDocument(data: Omit<Document, 'id' | 'created_at'>): Promise<Document> {
-    const response = await apiFetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error('Failed to create document');
-    return response.json();
-  }
-
-  async uploadFile(file: File): Promise<{ url: string; filename: string; size: number; type: string }> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await apiFetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
-    if (!response.ok) throw new Error('Failed to upload file');
-    return response.json();
-  }
-
-  async getDocuments(tenantId: string, role?: string, assignedTo?: string, customerId?: string): Promise<Document[]> {
-    const response = await apiFetch(`/api/documents?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}&customer_id=${customerId || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch documents');
-    return response.json();
-  }
-
-  async getCustomerDocuments(tenantId: string, role: string, assignedTo: string, customerId: string): Promise<Document[]> {
-    return this.getDocuments(tenantId, role, assignedTo, customerId);
-  }
-
-  // Audit log operations
-  async createAuditLog(data: Omit<AuditLog, 'id' | 'created_at'>): Promise<AuditLog> {
-    const response = await apiFetch('/api/audit_logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error('Failed to create audit log');
-    return response.json();
-  }
-
-  async getAuditLogs(tenantId: string): Promise<AuditLog[]> {
-    const response = await apiFetch(`/api/audit_logs?tenant_id=${tenantId}`);
-    if (!response.ok) throw new Error('Failed to fetch audit logs');
-    return response.json();
-  }
-
-  // Notification operations
-  async createNotification(data: Omit<Notification, 'id' | 'created_at' | 'is_read'>): Promise<Notification> {
-    const response = await apiFetch('/api/notifications', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return response.json();
-  }
-
-  async getNotifications(tenantId: string): Promise<Notification[]> {
-    const response = await apiFetch(`/api/notifications?tenant_id=${tenantId}`);
-    return response.json();
-  }
-
-  async markNotificationAsRead(id: string): Promise<Notification> {
-    const response = await apiFetch(`/api/notifications/mark-read`, {
+  async updatePolicy(policyId: string, updates: Partial<CustomerPolicy>): Promise<CustomerPolicy> {
+    const response = await apiFetch(`/api/policies/${policyId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+      body: JSON.stringify(updates)
     });
+    if (!response.ok) throw new Error('Failed to update policy');
     return response.json();
   }
 
-  async markAllNotificationsAsRead(tenantId: string): Promise<void> {
-    await apiFetch(`/api/notifications/mark-read`, {
+  async deletePolicy(policyId: string): Promise<void> {
+    const response = await apiFetch(`/api/policies/${policyId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenant_id: tenantId })
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
     });
+    if (!response.ok) throw new Error('Failed to delete policy');
+  }
+
+  async getPolicies(tenantId: string): Promise<CustomerPolicy[]> {
+    const response = await apiFetch(`/api/policies?tenant_id=${tenantId}`);
+    return response.json();
   }
 
   // Claim operations
@@ -219,17 +153,17 @@ export class DatabaseService {
     return response.json();
   }
 
-  async getClaims(tenantId: string, role?: string, assignedTo?: string): Promise<any[]> {
-    const response = await apiFetch(`/api/claims?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
-    return response.json();
-  }
-
   async updateClaimStatus(id: string, status: string): Promise<any> {
     const response = await apiFetch(`/api/claims/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
+    return response.json();
+  }
+
+  async getClaims(tenantId: string): Promise<any[]> {
+    const response = await apiFetch(`/api/claims?tenant_id=${tenantId}`);
     return response.json();
   }
 
@@ -240,57 +174,80 @@ export class DatabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Failed to create commission');
     return response.json();
   }
 
-  async getCommissions(tenantId: string, role?: string, assignedTo?: string): Promise<Commission[]> {
-    const response = await apiFetch(`/api/commissions?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch commissions');
+  async updateCommission(commissionId: string, updates: Partial<Commission>): Promise<Commission> {
+    const response = await apiFetch(`/api/commissions/${commissionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update commission');
     return response.json();
+  }
+
+  async deleteCommission(commissionId: string): Promise<void> {
+    const response = await apiFetch(`/api/commissions/${commissionId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete commission');
   }
 
   async payCommission(id: string): Promise<Commission> {
     const response = await apiFetch(`/api/commissions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_paid: true, paid_date: new Date() })
+      body: JSON.stringify({ status: 'paid', paid_at: new Date() })
     });
     return response.json();
   }
 
+  async getCommissions(tenantId: string): Promise<Commission[]> {
+    const response = await apiFetch(`/api/commissions?tenant_id=${tenantId}`);
+    return response.json();
+  }
+
   // Lead operations
-  async createLead(data: Omit<Lead, 'id' | 'created_at' | 'updated_at'>): Promise<Lead> {
+  async createLead(data: Omit<Lead, 'id' | 'created_at'>): Promise<Lead> {
     const response = await apiFetch('/api/leads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Failed to create lead');
     return response.json();
   }
 
-  async getLeads(tenantId: string, role?: string, assignedTo?: string): Promise<Lead[]> {
-    const response = await apiFetch(`/api/leads?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch leads');
-    return response.json();
-  }
-
-  async exportLeads(tenantId: string): Promise<void> {
-    window.location.href = `/api/leads/export?tenant_id=${tenantId}`;
-  }
-
-  async updateLeadStage(id: string, status: string): Promise<Lead> {
-    const response = await apiFetch(`/api/leads/${id}`, {
+  async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
+    const response = await apiFetch(`/api/leads/${leadId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
+      body: JSON.stringify(updates)
     });
+    if (!response.ok) throw new Error('Failed to update lead');
+    return response.json();
+  }
+
+  async updateLeadStage(id: string, stage: string): Promise<Lead> {
+    return this.updateLead(id, { stage } as any);
+  }
+
+  async deleteLead(leadId: string): Promise<void> {
+    const response = await apiFetch(`/api/leads/${leadId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
+    });
+    if (!response.ok) throw new Error('Failed to delete lead');
+  }
+
+  async getLeads(tenantId: string): Promise<Lead[]> {
+    const response = await apiFetch(`/api/leads?tenant_id=${tenantId}`);
     return response.json();
   }
 
   // Renewal operations
-  async createRenewal(data: Omit<Renewal, 'id' | 'created_at' | 'notified' | 'processed'>): Promise<Renewal> {
+  async createRenewal(data: Omit<Renewal, 'id' | 'created_at'>): Promise<Renewal> {
     const response = await apiFetch('/api/renewals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -299,17 +256,78 @@ export class DatabaseService {
     return response.json();
   }
 
-  async getRenewals(tenantId: string, role?: string, assignedTo?: string): Promise<Renewal[]> {
-    const response = await apiFetch(`/api/renewals?tenant_id=${tenantId}&role=${role || ''}&assigned_to=${assignedTo || ''}`);
-    if (!response.ok) throw new Error('Failed to fetch renewals');
-    return response.json();
-  }
-
   async processRenewal(id: string): Promise<Renewal> {
     const response = await apiFetch(`/api/renewals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ processed: true, processed_at: new Date() })
+      body: JSON.stringify({ status: 'processed', processed_at: new Date() })
+    });
+    return response.json();
+  }
+
+  async notifyRenewal(id: string): Promise<Renewal> {
+    const response = await apiFetch(`/api/renewals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notified: true, notified_at: new Date() })
+    });
+    return response.json();
+  }
+
+  async getRenewals(tenantId: string): Promise<Renewal[]> {
+    const response = await apiFetch(`/api/renewals?tenant_id=${tenantId}`);
+    return response.json();
+  }
+
+  // Notification operations
+  async createNotification(data: Omit<Notification, 'id' | 'created_at'>): Promise<Notification> {
+    const response = await apiFetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  }
+
+  async markNotificationAsRead(id: string): Promise<void> {
+    await apiFetch(`/api/notifications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_read: true })
+    });
+  }
+
+  async markAllNotificationsAsRead(tenantId: string): Promise<void> {
+    const notifications = await this.getNotifications(tenantId);
+    await Promise.all(notifications.map(n => this.markNotificationAsRead(n.id)));
+  }
+
+  async getNotifications(tenantId: string): Promise<Notification[]> {
+    const response = await apiFetch(`/api/notifications?tenant_id=${tenantId}`);
+    return response.json();
+  }
+
+  // Audit Log operations
+  async createAuditLog(data: Omit<AuditLog, 'id' | 'created_at'>): Promise<AuditLog> {
+    const response = await apiFetch('/api/audit_logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  }
+
+  async getAuditLogs(tenantId: string): Promise<AuditLog[]> {
+    const response = await apiFetch(`/api/audit_logs?tenant_id=${tenantId}`);
+    return response.json();
+  }
+
+  // Profile operations
+  async updateProfile(tenant_id: string, updates: Partial<Profile>): Promise<Profile> {
+    const response = await apiFetch(`/api/profiles/${tenant_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
     });
     return response.json();
   }
@@ -329,6 +347,7 @@ export class DatabaseService {
     return response.json();
   }
 
+  // Family member operations
   async createFamilyMember(data: Omit<FamilyMember, 'id' | 'created_at'>): Promise<FamilyMember> {
     const response = await apiFetch('/api/family-members', {
       method: 'POST',
@@ -367,6 +386,7 @@ export class DatabaseService {
     return response.json();
   }
 
+  // Other operations
   async createMessageTemplate(data: any): Promise<any> {
     const response = await apiFetch('/api/message-templates', {
       method: 'POST',
@@ -500,92 +520,44 @@ export class DatabaseService {
     });
     return response.json();
   }
-  // Update operations
-  async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
-    const response = await apiFetch(`/api/customers/${customerId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+
+  // Document operations
+  async uploadFile(file: File): Promise<{ file_name: string, file_url: string, file_size: number }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiFetch('/api/upload', {
+      method: 'POST',
+      body: formData
     });
-    if (!response.ok) throw new Error('Failed to update customer');
+
+    if (!response.ok) {
+      throw new Error('Failed to upload file');
+    }
+
     return response.json();
   }
 
-  async deleteCustomer(customerId: string): Promise<void> {
-    const response = await apiFetch(`/api/customers/${customerId}`, {
-      method: 'PATCH',
+  async addDocument(data: Omit<Document, 'id' | 'created_at'>): Promise<Document> {
+    const response = await apiFetch('/api/documents', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
+      body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Failed to delete customer');
-  }
 
-  async updatePolicy(policyId: string, updates: Partial<CustomerPolicy>): Promise<CustomerPolicy> {
-    const response = await apiFetch(`/api/policies/${policyId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (!response.ok) throw new Error('Failed to update policy');
+    if (!response.ok) {
+      throw new Error('Failed to save document metadata');
+    }
+
     return response.json();
   }
 
-  async deletePolicy(policyId: string): Promise<void> {
-    const response = await apiFetch(`/api/policies/${policyId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
-    });
-    if (!response.ok) throw new Error('Failed to delete policy');
+  async createDocument(data: Omit<Document, 'id' | 'created_at'>): Promise<Document> {
+    return this.addDocument(data);
   }
 
-  async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
-    const response = await apiFetch(`/api/leads/${leadId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (!response.ok) throw new Error('Failed to update lead');
-    return response.json();
-  }
-
-  async deleteLead(leadId: string): Promise<void> {
-    const response = await apiFetch(`/api/leads/${leadId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'deleted', deleted_at: new Date() })
-    });
-    if (!response.ok) throw new Error('Failed to delete lead');
-  }
-
-  async updateCommission(commissionId: string, updates: Partial<Commission>): Promise<Commission> {
-    const response = await apiFetch(`/api/commissions/${commissionId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (!response.ok) throw new Error('Failed to update commission');
-    return response.json();
-  }
-
-  async deleteCommission(commissionId: string): Promise<void> {
-    // Delete for commissions might be a real delete or soft delete. 
-    // Given the previous code used .delete, I'll use DELETE if I had it, but I added PATCH.
-    // I'll stick to DELETE for commissions if I add it to server, or PATCH if I prefer soft delete.
-    // The previous code was: await prisma.commissions.delete({ where: { id: commissionId } });
-    // Let's add DELETE to server too.
-    const response = await apiFetch(`/api/commissions/${commissionId}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error('Failed to delete commission');
-  }
-
-  async updateProfile(tenantId: string, updates: Partial<Profile>): Promise<Profile> {
-    const response = await apiFetch(`/api/profiles/${tenantId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
+  async getDocuments(tenantId: string): Promise<Document[]> {
+    const response = await apiFetch(`/api/documents?tenant_id=${tenantId}`);
     return response.json();
   }
 }
